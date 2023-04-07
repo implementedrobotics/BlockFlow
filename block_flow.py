@@ -68,6 +68,10 @@ class Block:
         return f"{self.name} (inputs: {len(self.inputs)}, outputs: {len(self.outputs)})"
 
 
+class DelayBlock(Block):
+    pass
+
+
 class System:
     def __init__(self, name: str = None):
 
@@ -126,10 +130,12 @@ class System:
         if not self.compiled:
             raise ValueError("Block system has not been compiled!")
 
+        # print("UPDATE: ")
         for block in self.sorted_blocks:
+            # print(block)
             block.update(t)
 
-    def connect(self, signal, dest, dest_port):
+    def connect(self, signal, dest, dest_port, dep=True):
 
         # Error Check
         if signal.block not in self.blocks or dest not in self.blocks:
@@ -139,7 +145,8 @@ class System:
             raise ValueError("Invalid destination index")
 
         # Add a dependency from the signal's block to the destination block
-        self._add_dependency(signal.block, dest)
+        if not isinstance(dest, DelayBlock):
+            self._add_dependency(signal.block, dest)
 
         # Connect a signal to a block input
         dest.inputs[dest_port] = signal
@@ -230,7 +237,6 @@ class Constant(Block):
         self._add_signal(0, Signal(self))
 
     def update(self, t):
-        print("Constant")
         self.outputs[0].set_data(self.value)
 
 
@@ -244,8 +250,6 @@ class Add(Block):
         self._add_signal(0, Signal(self))
 
     def update(self, t):
-        print("ADD")
-        print(self)
         self.outputs[0].set_data(
             self.inputs[0].get_data() + self.inputs[1].get_data())
 
@@ -309,7 +313,7 @@ class Step(Block):
                                  self.T else self.init_val)
 
 
-class ZeroOrderHold(Block):
+class ZeroOrderHold(DelayBlock):
     def __init__(self, sample_time, name: str = None):
         super().__init__(num_inputs=1, num_outputs=1, name=name)
         self.sample_time = sample_time
@@ -322,9 +326,8 @@ class ZeroOrderHold(Block):
         self.outputs[0].set_data(0)
 
     def update(self, t):
-        print("ZOH")
         if self.last_sample_time is None or t >= self.last_sample_time + self.sample_time:
-            self.outputs[0] = self.inputs[0]
+            self.outputs[0].set_data(self.inputs[0].get_data())
             self.last_sample_time = t
 
 
@@ -424,10 +427,10 @@ system.compile()
 
 system.run(5, dt=0.01)
 print(system)
-# system.update(0)
+system.update(0)
 
 
-# scope.view()
+scope.view()
 
 # print(system)
 # print(f"result: {add_block_2.outputs[0].get_data()}")
