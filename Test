@@ -1,0 +1,17 @@
+digraph Test {
+	rankdir=LR splines=ortho
+	title [label=Test shape=plaintext]
+	node [shape=box]
+	0 [label=Constant shape=box]
+	1 [label=Add shape=box]
+	2 [label=Add shape=box]
+	3 [label=Scope shape=box]
+	4 [label=ZOH shape=box]
+	4 -> 1
+	0 -> 1
+	0 -> 2
+	1 -> 2
+	2 -> 3
+	rank=min rankdir=LR
+	title -> 0 [constraint=false style=invis]
+}
