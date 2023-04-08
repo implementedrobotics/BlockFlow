@@ -1,7 +1,7 @@
 from graphviz import Digraph
 from collections import defaultdict, deque
 from functools import reduce
-
+from tabulate import tabulate
 import time
 import math
 import numpy as np
@@ -24,13 +24,16 @@ class Signal:
         self.block = block
 
         # Signal value
-        self.data = 0
+        self._data = 0
 
-    def set_data(self, value):
-        self.data = value
+    @property
+    def data(self):
+        return self._data
 
-    def get_data(self):
-        return self.data
+    @data.setter
+    def data(self, value):
+        self._data = value
+
 
 
 class Block:
@@ -66,7 +69,6 @@ class Block:
 
     def __str__(self):
         return f"{self.name} (inputs: {len(self.inputs)}, outputs: {len(self.outputs)})"
-
 
 class DelayBlock(Block):
     pass
@@ -213,6 +215,48 @@ class System:
 
         return graph
 
+    def print(self):
+        # Prepare the data for the table
+        table_data = []
+
+        # Iterate over the blocks in the system
+        for i, block in enumerate(self.blocks):
+            block_name = block.name
+            num_inputs = block.num_inputs
+            num_outputs = block.num_outputs
+            block_type = block.__class__.__name__
+
+            # Add the block's attributes to the table data
+            table_data.append([i, block_name, num_inputs, num_outputs, block_type])
+
+        # Format the data as a table using the tabulate library
+        table_str = tabulate(table_data, headers=["Id", "Name", "Inputs", "Outputs", "Type"], tablefmt="fancy_grid")
+
+        print(f"System [{self.name}]:\n\n{table_str}")
+
+    def print_connections(self):
+        # Prepare the data for the table
+        table_data = []
+
+        # Iterate over the connections
+        i = 0
+        for (src_block, src_port), connected_blocks in self.connections.items():
+            for dst_block, dst_port in connected_blocks:
+                # Extract information for the table
+                from_block = f"{src_block.name}[{src_port}]"
+                to_block = f"{dst_block.name}[{dst_port}]"
+                description = f"{src_block.name}[{src_port}] --> {dst_block.name}[{dst_port}]"
+                data_type = type(src_block.outputs[src_port].data).__name__
+
+                # Add the connection's attributes to the table data
+                table_data.append([i, from_block, to_block, description, data_type])
+
+            i += 1
+        # Format the data as a table using the tabulate library
+        table_str = tabulate(table_data, headers=["id", "from", "to", "description", "type"], tablefmt="fancy_grid")
+
+        print(f"Connections:\n{table_str}")
+
     def __str__(self):
 
         # String representation for blocks
@@ -237,21 +281,51 @@ class Constant(Block):
         self._add_signal(0, Signal(self))
 
     def update(self, t):
-        self.outputs[0].set_data(self.value)
+        self.outputs[0].data = (self.value)
 
 
 class Add(Block):
 
-    # TODO: Add + / - and loop num_inputs
-    def __init__(self, num_inputs=2, name: str = None) -> None:
+    def __init__(self, num_inputs=2, operations: list = None, name: str = None) -> None:
         super().__init__(num_inputs=num_inputs, num_outputs=1, name=name)
+
+        self.operations = operations
+
+        # Default to addition if not specificied for all inputs
+        if operations is None:
+            self.operations = ["+"] * num_inputs
+
+        assert len(self.operations) == num_inputs, "Number of operations must match number of inputs."
+        
+        for i, (operation) in enumerate(self.operations):
+            if operation == "+":
+                pass
+            elif operation == "-":
+                pass
+            else:
+                raise ValueError(f"Invalid operation: {operation} at input index {i}")
+
 
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
     def update(self, t):
-        self.outputs[0].set_data(
-            self.inputs[0].get_data() + self.inputs[1].get_data())
+        result = 0
+        for i, (operation, input) in enumerate(zip(self.operations, self.inputs)):
+            if operation == "+":
+                result += input.data
+            elif operation == "-":
+                result -= input.data
+            else:
+                raise ValueError(f"Invalid operation: {operation} at input index {i}")
+
+        # TODO: Could be faster?
+        # result = reduce(lambda acc, item: acc + (item[1].data if item[0] == "+" else -item[1].data),
+        #                            zip(self.operations, self.inputs), 0)
+
+        self.outputs[0].data = [result]
+
+        #self.outputs[0].data = (self.inputs[0].data + self.inputs[1].data)
 
 
 class Div(Block):
@@ -261,16 +335,19 @@ class Div(Block):
 
         super().__init__(num_inputs=num_inputs, num_outputs=1, name=name)
 
+        # Create a signal for the output
+        self._add_signal(0, Signal(self))
+
     def update(self, t):
 
         output_data = reduce(
-            lambda x, y: x / y, (input_signal.get_data() for input_signal in self.inputs))
+            lambda x, y: x / y, (input_signal.data for input_signal in self.inputs))
 
-        output_data = self.inputs[0].get_data()
+        output_data = self.inputs[0].data
         for i in range(1, self.num_inputs):
-            output_data /= self.inputs[i].get_data()
+            output_data /= self.inputs[i].data
 
-        self.outputs[0].set_data(output_data)
+        self.outputs[0].data = output_data
 
 
 class Mul(Block):
@@ -280,16 +357,20 @@ class Mul(Block):
 
         super().__init__(num_inputs=num_inputs, num_outputs=1, name=name)
 
+        # Create a signal for the output
+        self._add_signal(0, Signal(self))
+
     def update(self, t):
 
-        output_data = reduce(
-            lambda x, y: x * y, (input_signal.get_data() for input_signal in self.inputs))
+        # TODO: May be faster?  But may not be noticeable with low number of inputs
+        # output_data = reduce(
+        #     lambda x, y: x * y, (input_signal.data for input_signal in self.inputs))
 
-        output_data = self.inputs[0].get_data()
+        output_data = self.inputs[0].data
         for i in range(1, self.num_inputs):
-            output_data *= self.inputs[i].get_data()
+            output_data *= self.inputs[i].data
 
-        self.outputs[0].set_data(output_data)
+        self.outputs[0].data = output_data
 
 
 class Gain(Block):
@@ -297,8 +378,11 @@ class Gain(Block):
         super().__init__(num_inputs=1, num_outputs=1, name=name)
         self.gain = gain
 
+        # Create a signal for the output
+        self._add_signal(0, Signal(self))
+
     def update(self, t):
-        self.outputs[0].set_data(self.inputs[0].get_data() * self.gain)
+        self.outputs[0].data = (self.inputs[0].data * self.gain)
 
 
 class Step(Block):
@@ -308,9 +392,11 @@ class Step(Block):
         self.init_val = init_val
         self.step_val = step_val
 
+        # Create a signal for the output
+        self._add_signal(0, Signal(self))
+
     def update(self, t):
-        self.outputs[0].set_data(self.step_val if t >=
-                                 self.T else self.init_val)
+        self.outputs[0].data = (self.step_val if t >= self.T else self.init_val)
 
 
 class ZeroOrderHold(DelayBlock):
@@ -323,11 +409,11 @@ class ZeroOrderHold(DelayBlock):
         self._add_signal(0, Signal(self))
 
         # TODO: Initial Value Param?
-        self.outputs[0].set_data(0)
+        self.outputs[0].data = 0
 
     def update(self, t):
         if self.last_sample_time is None or t >= self.last_sample_time + self.sample_time:
-            self.outputs[0].set_data(self.inputs[0].get_data())
+            self.outputs[0].data = self.inputs[0].data
             self.last_sample_time = t
 
 
@@ -336,9 +422,12 @@ class Integrator(Block):
         super().__init__(num_inputs=1, num_outputs=1, name=name)
         self.prev_val = 0
 
+        # Create a signal for the output
+        self._add_signal(0, Signal(self))
+
     def update(self, t):
-        self.outputs[0].set_data(self.prev_val + self.inputs[0].get_data())
-        self.prev_val = self.outputs[0].get_data()
+        self.outputs[0].data = (self.prev_val + self.inputs[0].data)
+        self.prev_val = self.outputs[0].data
 
 
 class Derivative(Block):
@@ -347,11 +436,13 @@ class Derivative(Block):
         self.dt = dt
         self.prev_input = None
 
+        # Create a signal for the output
+        self._add_signal(0, Signal(self))
+
     def update(self, t):
         if self.prev_input is not None:
-            self.outputs[0].set_data(
-                (self.inputs[0].get_data() - self.prev_input) / self.dt)
-        self.prev_input = self.inputs[0].get_data()
+            self.outputs[0].data = ((self.inputs[0].data - self.prev_input) / self.dt)
+        self.prev_input = self.inputs[0].data
 
 
 class Saturation(Block):
@@ -360,9 +451,11 @@ class Saturation(Block):
         self.min_val = min_val
         self.max_val = max_val
 
+        # Create a signal for the output
+        self._add_signal(0, Signal(self))
+
     def update(self, t):
-        self.outputs[0].set_data(
-            min(max(self.inputs[0].get_data(), self.min_val), self.max_val))
+        self.outputs[0].data = (min(max(self.inputs[0].data, self.min_val), self.max_val))
 
 
 class Scope(Block):
@@ -379,7 +472,7 @@ class Scope(Block):
 
     def update(self, current_time):
         self.time_data.append(current_time)
-        self.input_data.append(self.inputs[0].get_data())
+        self.input_data.append(self.inputs[0].data)
 
         if len(self.time_data) > self.max_time_steps:
             self.time_data.pop(0)
@@ -398,42 +491,73 @@ class Scope(Block):
         print(f"self.input_data: {self.input_data}")
 
 
-# constant_5 = Constant(5, name="Constant")
+constant_5 = Constant(5, name="Constant")
 constant_2 = Constant(2, name="Constant")
 add_block = Add(name="Add")
-add_block_2 = Add(name="Add")
+add_block_2 = Add(name="Add 2")
 zoh = ZeroOrderHold(name="ZOH", sample_time=0.01)
 scope = Scope(num_inputs=1, max_time_steps=100, name="Scope")
-
+add_test = Add(num_inputs=7, name="Sub")
+mul_test = Mul(num_inputs=7, name="Mul")
 system = System("Test")
-# system.add_block(constant_5)
-system.add_block(constant_2)
-system.add_block(add_block)
-system.add_block(add_block_2)
-system.add_block(scope)
-system.add_block(zoh)
 
+system.add_block(constant_5)
+system.add_block(constant_2)
+system.add_block(mul_test)
+# system.add_block(add_block)
+# system.add_block(add_block_2)
+# system.add_block(scope)
+# system.add_block(zoh)
+
+
+system.connect(constant_5.outputs[0], mul_test, 0)
+system.connect(constant_2.outputs[0], mul_test, 1)
+system.connect(constant_2.outputs[0], mul_test, 2)
+system.connect(constant_2.outputs[0], mul_test, 3)
+system.connect(constant_2.outputs[0], mul_test, 4)
+system.connect(constant_2.outputs[0], mul_test, 5)
+system.connect(constant_2.outputs[0], mul_test, 6)
 
 # system.connect(constant_5.outputs[0], add_block, 0)
 
-system.connect(zoh.outputs[0], add_block, 0)
-system.connect(constant_2.outputs[0], add_block, 1)
-system.connect(add_block.outputs[0], add_block_2, 0)
-system.connect(constant_2.outputs[0], add_block_2, 1)
+# system.connect(zoh.outputs[0], add_block, 0)
+# system.connect(constant_2.outputs[0], add_block, 1)
+# system.connect(add_block.outputs[0], add_block_2, 0)
+# system.connect(constant_2.outputs[0], add_block_2, 1)
 
-system.connect(add_block_2.outputs[0], scope, 0)
-system.connect(add_block_2.outputs[0], zoh, 0)
+# system.connect(add_block_2.outputs[0], scope, 0)
+# system.connect(add_block_2.outputs[0], zoh, 0)
 system.compile()
 
-system.run(5, dt=0.01)
+#system.run(5, dt=0.01)
 print(system)
+#system.print()
+#system.print_connections()
+
+
+
+
+# Start the timer
+#start_time = time.perf_counter()
+
+# Call the function you want to time
 system.update(0)
 
+# Stop the timer
+#end_time = time.perf_counter()
 
-scope.view()
+# Calculate the elapsed time
+#elapsed_time = end_time - start_time
+
+#print(f"Elapsed time: {elapsed_time} seconds")
+
+
+
+
+#scope.view()
 
 # print(system)
-# print(f"result: {add_block_2.outputs[0].get_data()}")
+#print(f"result: {mul_test.outputs[0].data}")
 
 
 # Create a Graphviz graph from the system
