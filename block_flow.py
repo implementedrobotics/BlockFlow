@@ -13,6 +13,7 @@ import matplotlib
 matplotlib.use('QtAgg')
 
 
+# Utils
 def gcd(a, b):
     return math.gcd(a, b)
 
@@ -37,7 +38,7 @@ def gcm_of_floats(float1, float2):
 
 
 class Signal:
-    def __init__(self, block, name: str = None):
+    def __init__(self, block: "Block", name: str = None) -> None:
 
         # Signal name
         self.name = name
@@ -80,7 +81,7 @@ class Block:
         self.inputs = [None] * num_inputs
         self.outputs = [None] * num_outputs
 
-    def _add_signal(self, idx, signal: Signal):
+    def _add_signal(self, idx: int, signal: Signal) -> None:
 
         # Add a signal to the block's input list
 
@@ -92,10 +93,10 @@ class Block:
 
         self.outputs[idx] = signal
 
-    def update(self, t):
+    def update(self, t: float) -> None:
         raise NotImplementedError()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.name} (inputs: {len(self.inputs)}, outputs: {len(self.outputs)})"
 
 
@@ -104,7 +105,7 @@ class DelayBlock(Block):
 
 
 class System:
-    def __init__(self, name: str = None):
+    def __init__(self, name: str = None) -> None:
 
         # System name
         self.name = name
@@ -124,7 +125,7 @@ class System:
         # Flag to indicate if the system has been compiled
         self.compiled = False
 
-    def add_block(self, block):
+    def add_block(self, block: Block) -> None:
 
         # Add a block to the system
         self.blocks.append(block)
@@ -132,7 +133,7 @@ class System:
         # Invalidate block
         self.compiled = False
 
-    def _add_dependency(self, source, dest):
+    def _add_dependency(self, source: Block, dest: Block) -> None:
 
         # Invalidate block
         self.compiled = False
@@ -140,14 +141,14 @@ class System:
         # Add a dependency from source to dest block
         self.block_deps[source].add(dest)
 
-    def lcm_sample_time(self):
+    def lcm_sample_time(self) -> int:
         lcm_value = 1
         for block in self.blocks:
             if block.sample_time is not None:
                 lcm_value = lcm(lcm_value, block.sample_time)
         return lcm_value
 
-    def gcd_sample_time(self):
+    def gcd_sample_time(self) -> float:
         gcd_value = None
         for block in self.blocks:
             if block.sample_time is not None:
@@ -157,7 +158,7 @@ class System:
                     gcd_value = gcm_of_floats(gcd_value, block.sample_time)
         return gcd_value
 
-    def run(self, duration=None, dt=None):
+    def run(self, duration: float | None = None, dt: float | None = None) -> None:
 
         if dt is None:
             dt = self.gcd_sample_time()
@@ -178,30 +179,32 @@ class System:
                 self.update(t)
                 time.sleep(dt)
 
-    def update(self, t):
+    def update(self, t: float) -> None:
 
         if not self.compiled:
             raise ValueError("Block system has not been compiled!")
 
         epsilon = 1e-2
-        # print(f"UPDATE: {t}")
         for block in self.sorted_blocks:
-            # print(f"Check: {t % block.sample_time}")
             if block.sample_time is None or abs(t % block.sample_time) < epsilon:
-                # print(f"Updating block {block.name}")
                 block.update(t)
 
-    def connect(self, signal, dest, dest_port, dep=True):
+    def connect(self, signal: Signal, dest: Block, dest_port: int, dep: bool = True) -> None:
 
         # Error Check
-        if signal.block not in self.blocks or dest not in self.blocks:
+        all_blocks = self.blocks.copy()
+        for block in self.blocks:
+            if isinstance(block, SubSystemBlock):
+                all_blocks += block.sub_system.blocks
+
+        if signal.block not in all_blocks or dest not in all_blocks:
             raise ValueError("Signal block not in system!")
 
         if dest_port >= dest.num_inputs:
             raise ValueError("Invalid destination index")
 
         # Add a dependency from the signal's block to the destination block
-        if not isinstance(dest, DelayBlock):
+        if not isinstance(dest, DelayBlock) and not isinstance(dest, SourceBlock):
             self._add_dependency(signal.block, dest)
 
         # Connect a signal to a block input
@@ -211,7 +214,7 @@ class System:
         self.connections[(signal.block, signal.port_id)
                          ].append((dest, dest_port))
 
-    def compile(self):
+    def compile(self) -> None:
 
         self.sorted_blocks = []
         queue = deque()
@@ -221,6 +224,8 @@ class System:
             if len(self.block_deps[block]) == 0:
                 queue.append(block)
 
+        # print("Compile Blocks")
+        # print(self.blocks)
         # Process the blocks in the queue
         while queue:
             current_block = queue.popleft()
@@ -228,6 +233,8 @@ class System:
 
             # Iterate through all blocks in the system and remove the current block from their dependencies
             for block in self.blocks:
+                # print(f"Block: {block.name}")
+                # print(f"Block Deps: {self.block_deps[block]}")
                 if current_block in self.block_deps[block]:
                     self.block_deps[block].remove(current_block)
                     if len(self.block_deps[block]) == 0:
@@ -242,7 +249,7 @@ class System:
         self.sorted_blocks.reverse()
         self.compiled = True
 
-    def to_graphviz(self):
+    def to_graphviz(self) -> Digraph:
         # Create a new directed graph
         graph = Digraph(self.name)
 
@@ -269,7 +276,7 @@ class System:
 
         return graph
 
-    def print(self):
+    def print(self) -> None:
         # Prepare the data for the table
         table_data = []
 
@@ -290,7 +297,7 @@ class System:
 
         print(f"System [{self.name}]:\n\n{table_str}")
 
-    def print_connections(self):
+    def print_connections(self) -> None:
         # Prepare the data for the table
         table_data = []
 
@@ -330,6 +337,50 @@ class System:
         return f"System:\nBlocks:\n{blocks_str}\n\nConnections:\n{connections_str}"
 
 
+# TODO: Port Ids for the source and sink blocks?  This would then map to the system inputs and outputs idx
+class SourceBlock(Block):
+    def __init__(self, name: str = None):
+        super().__init__(num_inputs=1, num_outputs=1, name=name)
+
+        # Create a signal for the output
+        self._add_signal(0, Signal(self))
+
+    def update(self, t: float) -> None:
+        self.outputs[0].data = self.inputs[0].data
+
+
+class SinkBlock(Block):
+    def __init__(self, name: str = None):
+        super().__init__(num_inputs=1, num_outputs=1, name=name)
+
+        # Create a signal for the output
+        self._add_signal(0, Signal(self))
+
+    def update(self, t: float) -> None:
+        self.outputs[0].data = self.inputs[0].data
+
+
+class SubSystemBlock(Block):
+    def __init__(self, sub_system: System, name: str = None) -> None:
+        num_inputs = 0
+        num_outputs = 0
+
+        # Count the number of source and sink blocks in the nested system
+        for block in sub_system.blocks:
+            if isinstance(block, SourceBlock):
+                num_inputs += 1
+            elif isinstance(block, SinkBlock):
+                num_outputs += 1
+
+        super().__init__(num_inputs=num_inputs, num_outputs=num_outputs, name=name)
+
+        self.sub_system = sub_system
+        self.sub_system.compile()
+
+    def update(self, t: float) -> None:
+        self.sub_system.update(t)
+
+
 class Constant(Block):
     def __init__(self, value, sample_time: float = None, name: str = None) -> None:
         super().__init__(num_inputs=0, num_outputs=1, sample_time=sample_time, name=name)
@@ -338,17 +389,20 @@ class Constant(Block):
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
-    def update(self, t):
+    def update(self, t) -> None:
         self.outputs[0].data = (self.value)
 
 
 class Add(Block):
 
-    def __init__(self, num_inputs=2, operations: list = None, sample_time: float = None, name: str = None) -> None:
+    def __init__(self, num_inputs: int = 2, operations: list = None, sample_time: float = None, name: str = None) -> None:
         super().__init__(num_inputs=num_inputs, num_outputs=1,
                          sample_time=sample_time, name=name)
 
         self.operations = operations
+
+        if num_inputs < 2:
+            raise ValueError("[Add]: num_inputs must be at least 2")
 
         # Default to addition if not specificied for all inputs
         if operations is None:
@@ -369,7 +423,7 @@ class Add(Block):
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
-    def update(self, t):
+    def update(self, t: float) -> None:
         result = 0
         for i, (operation, input) in enumerate(zip(self.operations, self.inputs)):
             if operation == "+":
@@ -390,9 +444,9 @@ class Add(Block):
 
 
 class Div(Block):
-    def __init__(self, num_inputs=2, name: str = None) -> None:
-        if num_inputs <= 2:
-            raise ValueError("[Mul]: num_inputs must be greater than 2")
+    def __init__(self, num_inputs: int = 2, name: str = None) -> None:
+        if num_inputs < 2:
+            raise ValueError("[Mul]: num_inputs must be at least 2")
 
         super().__init__(num_inputs=num_inputs, num_outputs=1, name=name)
 
@@ -413,8 +467,8 @@ class Div(Block):
 
 class Mul(Block):
     def __init__(self, num_inputs=2, sample_time: float = None, name: str = None) -> None:
-        if num_inputs <= 2:
-            raise ValueError("[Mul]: num_inputs must be greater than 2")
+        if num_inputs < 2:
+            raise ValueError("[Mul]: num_inputs must be at least 2")
 
         super().__init__(num_inputs=num_inputs, num_outputs=1,
                          sample_time=sample_time, name=name)
@@ -422,7 +476,7 @@ class Mul(Block):
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
-    def update(self, t):
+    def update(self, t: float) -> None:
 
         # TODO: May be faster?  But may not be noticeable with low number of inputs
         # output_data = reduce(
@@ -436,19 +490,19 @@ class Mul(Block):
 
 
 class Gain(Block):
-    def __init__(self, gain, name: str = None) -> None:
+    def __init__(self, gain: float, name: str = None) -> None:
         super().__init__(num_inputs=1, num_outputs=1, name=name)
         self.gain = gain
 
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
-    def update(self, t):
+    def update(self, t: float) -> None:
         self.outputs[0].data = (self.inputs[0].data * self.gain)
 
 
 class Step(Block):
-    def __init__(self, T=0, init_val=0, step_val=1, name: str = None) -> None:
+    def __init__(self, T: float = 0, init_val: float = 0, step_val: float = 1, name: str = None) -> None:
         super().__init__(num_inputs=0, num_outputs=1, name=name)
         self.T = T
         self.init_val = init_val
@@ -457,13 +511,13 @@ class Step(Block):
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
-    def update(self, t):
+    def update(self, t: float) -> None:
         self.outputs[0].data = (self.step_val if t >=
                                 self.T else self.init_val)
 
 
 class ZeroOrderHold(DelayBlock):
-    def __init__(self, sample_time, name: str = None):
+    def __init__(self, sample_time, name: str = None) -> None:
         super().__init__(num_inputs=1, num_outputs=1, name=name)
         self.sample_time = sample_time
         self.last_sample_time = None
@@ -474,7 +528,7 @@ class ZeroOrderHold(DelayBlock):
         # TODO: Initial Value Param?
         self.outputs[0].data = 0
 
-    def update(self, t):
+    def update(self, t: float) -> None:
         if self.last_sample_time is None or t >= self.last_sample_time + self.sample_time:
             self.outputs[0].data = self.inputs[0].data
             self.last_sample_time = t
@@ -488,7 +542,7 @@ class Integrator(Block):
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
-    def update(self, t):
+    def update(self, t: float) -> None:
         self.outputs[0].data = (self.prev_val + self.inputs[0].data)
         self.prev_val = self.outputs[0].data
 
@@ -502,7 +556,7 @@ class Derivative(Block):
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
-    def update(self, t):
+    def update(self, t: float) -> None:
         if self.prev_input is not None:
             self.outputs[0].data = (
                 (self.inputs[0].data - self.prev_input) / self.dt)
@@ -518,13 +572,13 @@ class Saturation(Block):
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
-    def update(self, t):
+    def update(self, t: float) -> None:
         self.outputs[0].data = (
             min(max(self.inputs[0].data, self.min_val), self.max_val))
 
 
 class Scope(Block):
-    def __init__(self, num_inputs: int = 1, max_time_steps: int = 100, name: str = None):
+    def __init__(self, num_inputs: int = 1, max_time_steps: int = 100, name: str = None) -> None:
         super().__init__(num_inputs=num_inputs, num_outputs=0, name=name)
         self.max_time_steps = max_time_steps
         self.time_data = []
@@ -535,8 +589,8 @@ class Scope(Block):
         self.axis.set_xlabel('Time')
         self.axis.set_ylabel('Input Data')
 
-    def update(self, current_time):
-        self.time_data.append(current_time)
+    def update(self, t: float) -> None:
+        self.time_data.append(t)
         self.input_data.append(self.inputs[0].data)
 
         if len(self.time_data) > self.max_time_steps:
@@ -550,38 +604,38 @@ class Scope(Block):
         self.axis.set_xlabel('Time')
         self.axis.set_ylabel('Input Data')
 
-    def view(self):
+    def view(self) -> None:
         plt.show()
         print(f"self.time_data: {self.time_data}")
         print(f"self.input_data: {self.input_data}")
 
 
-constant_5 = Constant(5, sample_time=0.01, name="Constant")
-constant_2 = Constant(2, sample_time=0.02, name="Constant")
+constant_5 = Constant(5, sample_time=1, name="Constant 5")
+constant_2 = Constant(2, sample_time=1, name="Constant 2")
 add_block = Add(name="Add")
 add_block_2 = Add(name="Add 2")
-zoh = ZeroOrderHold(name="ZOH", sample_time=0.01)
+zoh = ZeroOrderHold(name="ZOH", sample_time=1)
 scope = Scope(num_inputs=1, max_time_steps=100, name="Scope")
-add_test = Add(num_inputs=7, name="Sub")
-mul_test = Mul(num_inputs=7, sample_time=3.0, name="Mul")
+add_test = Add(num_inputs=2, name="Sub")
+mul_test = Mul(num_inputs=2, sample_time=1, name="Mul")
 system = System("Test")
 
-system.add_block(constant_5)
-system.add_block(constant_2)
-system.add_block(mul_test)
-# system.add_block(add_block)
-# system.add_block(add_block_2)
-# system.add_block(scope)
-# system.add_block(zoh)
+# system.add_block(constant_5)
+# system.add_block(constant_2)
+# system.add_block(mul_test)
+# # system.add_block(add_block)
+# # system.add_block(add_block_2)
+# # system.add_block(scope)
+# # system.add_block(zoh)
 
 
-system.connect(constant_5.outputs[0], mul_test, 0)
-system.connect(constant_2.outputs[0], mul_test, 1)
-system.connect(constant_2.outputs[0], mul_test, 2)
-system.connect(constant_2.outputs[0], mul_test, 3)
-system.connect(constant_2.outputs[0], mul_test, 4)
-system.connect(constant_2.outputs[0], mul_test, 5)
-system.connect(constant_2.outputs[0], mul_test, 6)
+# system.connect(constant_5.outputs[0], mul_test, 0)
+# system.connect(constant_2.outputs[0], mul_test, 1)
+# system.connect(constant_2.outputs[0], mul_test, 2)
+# system.connect(constant_2.outputs[0], mul_test, 3)
+# system.connect(constant_2.outputs[0], mul_test, 4)
+# system.connect(constant_2.outputs[0], mul_test, 5)
+# system.connect(constant_2.outputs[0], mul_test, 6)
 
 # system.connect(constant_5.outputs[0], add_block, 0)
 
@@ -592,10 +646,36 @@ system.connect(constant_2.outputs[0], mul_test, 6)
 
 # system.connect(add_block_2.outputs[0], scope, 0)
 # system.connect(add_block_2.outputs[0], zoh, 0)
-system.compile()
+# system.compile()
 
-system.run(12, dt=None)
-print(system)
+
+sub_system = System(name="Subsystem")
+source = SourceBlock(name="Source")
+sink = SinkBlock(name="Sink")
+sub_system.add_block(source)
+sub_system.add_block(constant_2)
+sub_system.add_block(mul_test)
+sub_system.add_block(sink)
+sub_system.connect(source.outputs[0], mul_test, 0)
+sub_system.connect(constant_2.outputs[0], mul_test, 1)
+sub_system.connect(mul_test.outputs[0], sink, 0)
+sub_system_block = SubSystemBlock(sub_system, "Subsytem Block")
+
+
+system.add_block(sub_system_block)
+system.add_block(constant_5)
+system.connect(constant_5.outputs[0], source, 0)
+system.compile()
+system.update(1)
+# print(sub_system)
+# sub_system.update(1)
+
+print(f"result: {sink.outputs[0].data}")
+print(f"result: {mul_test.outputs[0].data}")
+
+
+# sub_system.run(3, dt=None)
+# print(system)
 # system.print()
 # system.print_connections()
 
@@ -622,13 +702,13 @@ print(system)
 
 
 # Create a Graphviz graph from the system
-graph = system.to_graphviz()
+# graph = system.to_graphviz()
 
 
 # print(graph)
 
 # Render the graph to a file (e.g., in PNG format)
-graph.render(system.name, format="png")
+# graph.render(system.name, format="png")
 
 
 # # Start the timer
