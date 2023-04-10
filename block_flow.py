@@ -210,6 +210,11 @@ class System:
         # Connect a signal to a block input
         dest.inputs[dest_port] = signal
 
+        # Do some type mapping if this is a source/sink block from a subsystem.  For better debug print
+        if isinstance(dest, SourceBlock):
+            dest_port = dest.port_id
+            dest = dest.system_parent
+
         # Update the connections dictionary
         self.connections[(signal.block, signal.port_id)
                          ].append((dest, dest_port))
@@ -224,8 +229,6 @@ class System:
             if len(self.block_deps[block]) == 0:
                 queue.append(block)
 
-        # print("Compile Blocks")
-        # print(self.blocks)
         # Process the blocks in the queue
         while queue:
             current_block = queue.popleft()
@@ -233,8 +236,6 @@ class System:
 
             # Iterate through all blocks in the system and remove the current block from their dependencies
             for block in self.blocks:
-                # print(f"Block: {block.name}")
-                # print(f"Block Deps: {self.block_deps[block]}")
                 if current_block in self.block_deps[block]:
                     self.block_deps[block].remove(current_block)
                     if len(self.block_deps[block]) == 0:
@@ -320,7 +321,7 @@ class System:
         table_str = tabulate(table_data, headers=[
                              "id", "from", "to", "description", "type"], tablefmt="fancy_grid")
 
-        print(f"Connections:\n{table_str}")
+        print(f"{self.name} Connections:\n{table_str}\n")
 
     def __str__(self):
 
@@ -339,19 +340,40 @@ class System:
 
 # TODO: Port Ids for the source and sink blocks?  This would then map to the system inputs and outputs idx
 class SourceBlock(Block):
-    def __init__(self, name: str = None):
+    def __init__(self, system_parent: "SubSystemBlock", port_id=0, name: str = None):
         super().__init__(num_inputs=1, num_outputs=1, name=name)
+
+        if port_id < 0 or port_id is None:
+            raise ValueError("[Source Block]: Invalid Port Id (must be >= 0)")
+
+        # Store a reference to the parent system
+        self.system_parent = system_parent
+
+        # Signal Port ID
+        self.port_id = port_id
 
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
     def update(self, t: float) -> None:
+        if (self.inputs[0] is None):
+            raise ReferenceError(
+                f"[Source Block]: {self.name} - ERROR Input is NOT connected to a signal (port_id={self.port_id})")
         self.outputs[0].data = self.inputs[0].data
 
 
 class SinkBlock(Block):
-    def __init__(self, name: str = None):
+    def __init__(self, system_parent: "SubSystemBlock", port_id=0, name: str = None):
         super().__init__(num_inputs=1, num_outputs=1, name=name)
+
+        if port_id < 0 or port_id is None:
+            raise ValueError("[Source Block]: Invalid Port Id (must be >= 0)")
+
+        # Store a reference to the parent system
+        self.system_parent = system_parent
+
+        # Signal Port ID
+        self.port_id = port_id
 
         # Create a signal for the output
         self._add_signal(0, Signal(self))
@@ -365,12 +387,24 @@ class SubSystemBlock(Block):
         num_inputs = 0
         num_outputs = 0
 
+        source_port_ids = set()
+        sink_port_ids = set()
+
         # Count the number of source and sink blocks in the nested system
         for block in sub_system.blocks:
             if isinstance(block, SourceBlock):
-                num_inputs += 1
+                if block.port_id in source_port_ids:
+                    raise ValueError(
+                        f"Duplicate source port id {block.port_id} in sub system {sub_system.name}")
+                source_port_ids.add(block.port_id)
             elif isinstance(block, SinkBlock):
-                num_outputs += 1
+                if block.port_id in sink_port_ids:
+                    raise ValueError(
+                        f"Duplicate sink port id {block.port_id} in sub system {sub_system.name}")
+                sink_port_ids.add(block.port_id)
+
+        num_inputs = len(source_port_ids)
+        num_outputs = len(sink_port_ids)
 
         super().__init__(num_inputs=num_inputs, num_outputs=num_outputs, name=name)
 
@@ -650,8 +684,8 @@ system = System("Test")
 
 
 sub_system = System(name="Subsystem")
-source = SourceBlock(name="Source")
-sink = SinkBlock(name="Sink")
+source = SourceBlock(system_parent=sub_system, port_id=0, name="Source")
+sink = SinkBlock(system_parent=sub_system, port_id=0, name="Sink")
 sub_system.add_block(source)
 sub_system.add_block(constant_2)
 sub_system.add_block(mul_test)
@@ -666,12 +700,14 @@ system.add_block(sub_system_block)
 system.add_block(constant_5)
 system.connect(constant_5.outputs[0], source, 0)
 system.compile()
+system.print_connections()
+sub_system.print_connections()
 system.update(1)
 # print(sub_system)
 # sub_system.update(1)
 
-print(f"result: {sink.outputs[0].data}")
-print(f"result: {mul_test.outputs[0].data}")
+# print(f"result: {sink.outputs[0].data}")
+# print(f"result: {mul_test.outputs[0].data}")
 
 
 # sub_system.run(3, dt=None)
