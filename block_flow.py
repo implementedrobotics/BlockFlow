@@ -1,3 +1,4 @@
+from fractions import Fraction
 from graphviz import Digraph
 from collections import defaultdict, deque
 from functools import reduce
@@ -5,10 +6,34 @@ from tabulate import tabulate
 import time
 import math
 import numpy as np
+from math import gcd
 
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('QtAgg')
+
+
+def gcd(a, b):
+    return math.gcd(a, b)
+
+
+def lcm(a, b):
+    return abs(a * b) // gcd(a, b)
+
+
+def round_time(t, decimals=6):
+    return round(t, decimals)
+
+
+def gcm_of_floats(float1, float2):
+    frac1 = Fraction(float1).limit_denominator()
+    frac2 = Fraction(float2).limit_denominator()
+
+    gcd_numerators = gcd(frac1.numerator, frac2.numerator)
+    lcm_denominators = lcm(frac1.denominator, frac2.denominator)
+
+    gcm_fraction = Fraction(gcd_numerators, lcm_denominators)
+    return float(gcm_fraction)
 
 
 class Signal:
@@ -35,9 +60,8 @@ class Signal:
         self._data = value
 
 
-
 class Block:
-    def __init__(self, num_inputs: int, num_outputs: int, name: str = None) -> None:
+    def __init__(self, num_inputs: int, num_outputs: int, sample_time: float = None, name: str = None) -> None:
 
         # Block name
         self.name = name
@@ -45,6 +69,10 @@ class Block:
         # Number of inputs and outputs
         self.num_inputs = num_inputs
         self.num_outputs = num_outputs
+
+        # Sample time
+        self.sample_time = sample_time
+        self.last_sample_time = -1.0
 
         # List of inputs and output signals
 
@@ -69,6 +97,7 @@ class Block:
 
     def __str__(self):
         return f"{self.name} (inputs: {len(self.inputs)}, outputs: {len(self.outputs)})"
+
 
 class DelayBlock(Block):
     pass
@@ -111,19 +140,41 @@ class System:
         # Add a dependency from source to dest block
         self.block_deps[source].add(dest)
 
-    def run(self, duration=None, dt=0.01):
+    def lcm_sample_time(self):
+        lcm_value = 1
+        for block in self.blocks:
+            if block.sample_time is not None:
+                lcm_value = lcm(lcm_value, block.sample_time)
+        return lcm_value
+
+    def gcd_sample_time(self):
+        gcd_value = None
+        for block in self.blocks:
+            if block.sample_time is not None:
+                if gcd_value is None:
+                    gcd_value = block.sample_time
+                else:
+                    gcd_value = gcm_of_floats(gcd_value, block.sample_time)
+        return gcd_value
+
+    def run(self, duration=None, dt=None):
+
+        if dt is None:
+            dt = self.gcd_sample_time()
+
+        print(f"Running system for {duration} seconds with dt={dt}...")
         start_time = time.time()
         t = 0
         if duration is None:
             # Run forever
             while True:
-                t = time.time() - start_time
+                t = round_time(time.time() - start_time)
                 self.update(t)
                 time.sleep(dt)
         else:
             # Run for the specified duration
             while time.time() - start_time < duration:
-                t = time.time() - start_time
+                t = round_time(time.time() - start_time)
                 self.update(t)
                 time.sleep(dt)
 
@@ -132,10 +183,13 @@ class System:
         if not self.compiled:
             raise ValueError("Block system has not been compiled!")
 
-        # print("UPDATE: ")
+        epsilon = 1e-2
+        # print(f"UPDATE: {t}")
         for block in self.sorted_blocks:
-            # print(block)
-            block.update(t)
+            # print(f"Check: {t % block.sample_time}")
+            if block.sample_time is None or abs(t % block.sample_time) < epsilon:
+                # print(f"Updating block {block.name}")
+                block.update(t)
 
     def connect(self, signal, dest, dest_port, dep=True):
 
@@ -227,10 +281,12 @@ class System:
             block_type = block.__class__.__name__
 
             # Add the block's attributes to the table data
-            table_data.append([i, block_name, num_inputs, num_outputs, block_type])
+            table_data.append(
+                [i, block_name, num_inputs, num_outputs, block_type])
 
         # Format the data as a table using the tabulate library
-        table_str = tabulate(table_data, headers=["Id", "Name", "Inputs", "Outputs", "Type"], tablefmt="fancy_grid")
+        table_str = tabulate(table_data, headers=[
+                             "Id", "Name", "Inputs", "Outputs", "Type"], tablefmt="fancy_grid")
 
         print(f"System [{self.name}]:\n\n{table_str}")
 
@@ -249,11 +305,13 @@ class System:
                 data_type = type(src_block.outputs[src_port].data).__name__
 
                 # Add the connection's attributes to the table data
-                table_data.append([i, from_block, to_block, description, data_type])
+                table_data.append(
+                    [i, from_block, to_block, description, data_type])
 
             i += 1
         # Format the data as a table using the tabulate library
-        table_str = tabulate(table_data, headers=["id", "from", "to", "description", "type"], tablefmt="fancy_grid")
+        table_str = tabulate(table_data, headers=[
+                             "id", "from", "to", "description", "type"], tablefmt="fancy_grid")
 
         print(f"Connections:\n{table_str}")
 
@@ -273,8 +331,8 @@ class System:
 
 
 class Constant(Block):
-    def __init__(self, value, name: str = None) -> None:
-        super().__init__(num_inputs=0, num_outputs=1, name=name)
+    def __init__(self, value, sample_time: float = None, name: str = None) -> None:
+        super().__init__(num_inputs=0, num_outputs=1, sample_time=sample_time, name=name)
         self.value = value
 
         # Create a signal for the output
@@ -286,8 +344,9 @@ class Constant(Block):
 
 class Add(Block):
 
-    def __init__(self, num_inputs=2, operations: list = None, name: str = None) -> None:
-        super().__init__(num_inputs=num_inputs, num_outputs=1, name=name)
+    def __init__(self, num_inputs=2, operations: list = None, sample_time: float = None, name: str = None) -> None:
+        super().__init__(num_inputs=num_inputs, num_outputs=1,
+                         sample_time=sample_time, name=name)
 
         self.operations = operations
 
@@ -295,16 +354,17 @@ class Add(Block):
         if operations is None:
             self.operations = ["+"] * num_inputs
 
-        assert len(self.operations) == num_inputs, "Number of operations must match number of inputs."
-        
+        assert len(
+            self.operations) == num_inputs, "Number of operations must match number of inputs."
+
         for i, (operation) in enumerate(self.operations):
             if operation == "+":
                 pass
             elif operation == "-":
                 pass
             else:
-                raise ValueError(f"Invalid operation: {operation} at input index {i}")
-
+                raise ValueError(
+                    f"Invalid operation: {operation} at input index {i}")
 
         # Create a signal for the output
         self._add_signal(0, Signal(self))
@@ -317,7 +377,8 @@ class Add(Block):
             elif operation == "-":
                 result -= input.data
             else:
-                raise ValueError(f"Invalid operation: {operation} at input index {i}")
+                raise ValueError(
+                    f"Invalid operation: {operation} at input index {i}")
 
         # TODO: Could be faster?
         # result = reduce(lambda acc, item: acc + (item[1].data if item[0] == "+" else -item[1].data),
@@ -325,7 +386,7 @@ class Add(Block):
 
         self.outputs[0].data = [result]
 
-        #self.outputs[0].data = (self.inputs[0].data + self.inputs[1].data)
+        # self.outputs[0].data = (self.inputs[0].data + self.inputs[1].data)
 
 
 class Div(Block):
@@ -351,11 +412,12 @@ class Div(Block):
 
 
 class Mul(Block):
-    def __init__(self, num_inputs=2, name: str = None) -> None:
+    def __init__(self, num_inputs=2, sample_time: float = None, name: str = None) -> None:
         if num_inputs <= 2:
             raise ValueError("[Mul]: num_inputs must be greater than 2")
 
-        super().__init__(num_inputs=num_inputs, num_outputs=1, name=name)
+        super().__init__(num_inputs=num_inputs, num_outputs=1,
+                         sample_time=sample_time, name=name)
 
         # Create a signal for the output
         self._add_signal(0, Signal(self))
@@ -396,7 +458,8 @@ class Step(Block):
         self._add_signal(0, Signal(self))
 
     def update(self, t):
-        self.outputs[0].data = (self.step_val if t >= self.T else self.init_val)
+        self.outputs[0].data = (self.step_val if t >=
+                                self.T else self.init_val)
 
 
 class ZeroOrderHold(DelayBlock):
@@ -441,7 +504,8 @@ class Derivative(Block):
 
     def update(self, t):
         if self.prev_input is not None:
-            self.outputs[0].data = ((self.inputs[0].data - self.prev_input) / self.dt)
+            self.outputs[0].data = (
+                (self.inputs[0].data - self.prev_input) / self.dt)
         self.prev_input = self.inputs[0].data
 
 
@@ -455,7 +519,8 @@ class Saturation(Block):
         self._add_signal(0, Signal(self))
 
     def update(self, t):
-        self.outputs[0].data = (min(max(self.inputs[0].data, self.min_val), self.max_val))
+        self.outputs[0].data = (
+            min(max(self.inputs[0].data, self.min_val), self.max_val))
 
 
 class Scope(Block):
@@ -491,14 +556,14 @@ class Scope(Block):
         print(f"self.input_data: {self.input_data}")
 
 
-constant_5 = Constant(5, name="Constant")
-constant_2 = Constant(2, name="Constant")
+constant_5 = Constant(5, sample_time=0.01, name="Constant")
+constant_2 = Constant(2, sample_time=0.02, name="Constant")
 add_block = Add(name="Add")
 add_block_2 = Add(name="Add 2")
 zoh = ZeroOrderHold(name="ZOH", sample_time=0.01)
 scope = Scope(num_inputs=1, max_time_steps=100, name="Scope")
 add_test = Add(num_inputs=7, name="Sub")
-mul_test = Mul(num_inputs=7, name="Mul")
+mul_test = Mul(num_inputs=7, sample_time=3.0, name="Mul")
 system = System("Test")
 
 system.add_block(constant_5)
@@ -529,35 +594,31 @@ system.connect(constant_2.outputs[0], mul_test, 6)
 # system.connect(add_block_2.outputs[0], zoh, 0)
 system.compile()
 
-#system.run(5, dt=0.01)
+system.run(12, dt=None)
 print(system)
-#system.print()
-#system.print_connections()
-
-
+# system.print()
+# system.print_connections()
 
 
 # Start the timer
-#start_time = time.perf_counter()
+# start_time = time.perf_counter()
 
 # Call the function you want to time
-system.update(0)
+# system.update(0)
 
 # Stop the timer
-#end_time = time.perf_counter()
+# end_time = time.perf_counter()
 
 # Calculate the elapsed time
-#elapsed_time = end_time - start_time
+# elapsed_time = end_time - start_time
 
-#print(f"Elapsed time: {elapsed_time} seconds")
-
-
+# print(f"Elapsed time: {elapsed_time} seconds")
 
 
-#scope.view()
+# scope.view()
 
 # print(system)
-#print(f"result: {mul_test.outputs[0].data}")
+# print(f"result: {mul_test.outputs[0].data}")
 
 
 # Create a Graphviz graph from the system
