@@ -35,15 +35,15 @@ pip install -r requirements.txt
 ## Example
 
 ```
-from blockflow import System, SourceBlock, SinkBlock, ConstantBlock, MulBlock
+from blockflow import System, SourceBlock, SinkBlock, Constant, Mul
 
 # Create a new system
 system = System(name="ExampleSystem")
 
 # Create blocks
 source = SourceBlock(system_parent=system, port_id=0, name="Source")
-constant_2 = ConstantBlock(system_parent=system, value=2, name="Constant_2")
-mul_test = MulBlock(system_parent=system, name="Mul_Test")
+constant_2 = Constant(system_parent=system, value=2, name="Constant_2")
+mul_test = Mul(system_parent=system, name="Mul_Test")
 sink = SinkBlock(system_parent=system, port_id=0, name="Sink")
 
 # Add blocks to the system
