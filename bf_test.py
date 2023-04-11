@@ -8,14 +8,6 @@ from block_flow.connections.signals import Signal
 from block_flow.blocks.sources.constant import Constant
 from block_flow.blocks.math import Add, Mul
 
-# from graphviz import Digraph
-
-
-# import time
-# import math
-# import numpy as np
-# from math import gcd
-
 
 constant_5 = Constant(5, sample_time=1, name="Constant 5")
 constant_2 = Constant(2, sample_time=1, name="Constant 2")
@@ -76,22 +68,13 @@ system.compile()
 
 system.run(3, dt=None)
 
-
 system.print_connections()
 sub_system.print_connections()
 system.update(1)
-# print(sub_system)
-# sub_system.update(1)
+
 
 # print(f"result: {sink.outputs[0].data}")
 # print(f"result: {mul_test.outputs[0].data}")
-
-
-# sub_system.run(3, dt=None)
-# print(system)
-# system.print()
-# system.print_connections()
-
 
 # Start the timer
 # start_time = time.perf_counter()
@@ -109,31 +92,3 @@ system.update(1)
 
 
 # scope.view()
-
-# print(system)
-# print(f"result: {mul_test.outputs[0].data}")
-
-
-# Create a Graphviz graph from the system
-# graph = system.to_graphviz()
-
-
-# print(graph)
-
-# Render the graph to a file (e.g., in PNG format)
-# graph.render(system.name, format="png")
-
-
-# # Start the timer
-# start_time = time.perf_counter()
-
-# # Call the function you want to time
-# my_function()
-
-# # Stop the timer
-# end_time = time.perf_counter()
-
-# # Calculate the elapsed time
-# elapsed_time = end_time - start_time
-
-# print(f"Elapsed time: {elapsed_time} seconds")

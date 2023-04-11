@@ -34,7 +34,7 @@ pip install -r requirements.txt
 
 ## Example
 
-```
+```python
 from blockflow import System, SourceBlock, SinkBlock, Constant, Mul
 
 # Create a new system
