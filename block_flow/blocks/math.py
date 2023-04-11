@@ -41,7 +41,7 @@ class Add(Block):
 
         # Create a ports for the inputs
         for i in range(num_inputs):
-            self._add_input_port(i, OutputPort(self, float))
+            self._add_input_port(i, InputPort(self, float))
 
     def update(self, t: float) -> None:
 

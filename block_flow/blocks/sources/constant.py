@@ -19,5 +19,6 @@ class Constant(Block):
 
     def update(self, t) -> None:
 
+        # print("Update Constant Block: ", self.value)
         # Set Output
         self.outputs[0].data = (self.value)

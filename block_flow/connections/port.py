@@ -5,6 +5,19 @@ if TYPE_CHECKING:
     from block_flow.blocks.block import Block
 
 
+class PortData:
+    def __init__(self, value):
+        self._value = None
+
+    @property
+    def data(self):
+        return self._value
+
+    @data.setter
+    def data(self, value):
+        self._value = value
+
+
 class Port:
     def __init__(self, block: "Block", data_type: Type, name: str = None):
 
@@ -21,7 +34,7 @@ class Port:
         self.port_id = None
 
         # Signal value
-        self._data = data_type()
+        self._port_data = PortData(value=data_type())
 
         # Connected?
         self.connected = False
@@ -33,11 +46,11 @@ class InputPort(Port):
 
     @property
     def data(self):
-        return self._data
+        return self._port_data._value
 
     @data.setter
     def data(self, value):
-        self._data = value
+        self._port_data._value = value
 
 
 class OutputPort(Port):
@@ -47,10 +60,15 @@ class OutputPort(Port):
         # List of connected signals
         self.connections = []
 
+    def _connect(self, dest) -> bool:
+        dest._port_data = self._port_data
+
+        return True
+
     @property
     def data(self):
-        return self._data
+        return self._port_data._value
 
     @data.setter
     def data(self, value):
-        self._data = value
+        self._port_data._value = value

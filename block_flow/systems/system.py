@@ -149,24 +149,19 @@ class System:
             self._add_dependency(source.block, dest.block)
 
         # Connect a signal to a block input
-        dest._data = source._data
-        # dest.inputs[dest_port] = signal
 
         if dest.connected:
             raise ValueError("Input Port already connected")
 
-        # Verify not already connected
-        # if dest not in source.connections:
-        #     source.connections.append(dest)
-        # else:
-        #     raise ValueError("Input Port already connected")
+        # dest._data = source._data
+        # dest.inputs[dest_port] = signal
 
-        dest.connected = True
+        dest.connected = source._connect(dest)
 
         # Do some type mapping if this is a source/sink block from a subsystem.  For better debug print
-        if isinstance(dest.block, SourceBlock):
-            # dest_port = dest.port_id
-            dest = dest.block.system_parent
+        # if isinstance(dest.block, SourceBlock):
+        # dest_port = dest.port_id
+        #   dest = dest.block.system_parent
 
         # Update the connections dictionary
         self.connections[source].append(dest)
@@ -283,10 +278,14 @@ class System:
         i = 0
         for src_port, connected_blocks in self.connections.items():
             for dst_port in connected_blocks:
+                dst_block = dst_port.block
+                if isinstance(dst_block, SourceBlock):
+                    dst_block = dst_block.system_parent
+
                 # Extract information for the table
                 from_block = f"{src_port.block.name}[{src_port.port_id}]"
-                to_block = f"{dst_port.block.name}[{dst_port.port_id}]"
-                description = f"{src_port.block.name}[{src_port.port_id}] --> {dst_port.block.name}[{dst_port.port_id}]"
+                to_block = f"{dst_block.name}[{dst_port.port_id}]"
+                description = f"{src_port.block.name}[{src_port.port_id}] --> {dst_block.name}[{dst_port.port_id}]"
                 # data_type = type(
                 #     src_port.block.outputs[src_port.port_id].data).__name__
                 data_type = src_port.data_type.__name__
@@ -311,11 +310,12 @@ class System:
                     # Add the connection's attributes to the table data
                     table_data.append([port.block.name, port.port_id])
 
-        # Format the data as a table using the tabulate library
-        table_str = tabulate(table_data, headers=[
-                             "Block Name", "Port"], tablefmt="fancy_grid")
+        if len(table_data) > 0:
+            # Format the data as a table using the tabulate library
+            table_str = tabulate(table_data, headers=[
+                "Block Name", "Port"], tablefmt="fancy_grid")
 
-        print(f"{self.name} Unconnectioned:\n{table_str}\n")
+            print(f"{self.name} Unconnectioned:\n{table_str}\n")
 
     def __str__(self):
 
