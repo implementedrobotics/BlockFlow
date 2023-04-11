@@ -12,13 +12,13 @@ from block_flow.blocks.math import Add, Mul
 constant_5 = Constant(5.2, sample_time=1, name="Constant 5")
 
 constant_2 = Constant(2, sample_time=1, name="Constant 2")
-add_block = Add(name="Add")
+add_block = Add(num_inputs=3, name="Add")
 # add_block_2 = Add(name="Add 2")
 # zoh = ZeroOrderHold(name="ZOH", sample_time=1)
 # scope = Scope(num_inputs=1, max_time_steps=100, name="Scope")
 # add_test = Add(num_inputs=2, name="Sub")
 # mul_test = Mul(num_inputs=2, sample_time=1, name="Mul")
-system = System("Test")
+system = System("Test2")
 
 system.add_block(constant_5)
 system.add_block(constant_2)
@@ -68,7 +68,12 @@ system.connect(constant_2.outputs[0], add_block.inputs[1])
 system.compile()
 # system.run(3, dt=None)
 # print(add_block.outputs[0].data)
-system.print_connections()
+# system.print_connections()
+
+
+# print(system.to_graphviz())
+
+# system.to_graphviz().render(system.name, format="png")
 # sub_system.print_connections()
 # system.update(1)
 

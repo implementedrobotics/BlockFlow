@@ -217,10 +217,10 @@ class System:
             graph.node(str(idx), label=block.name, shape="box")
 
         # Add edges (connections) to the graph
-        for (src_block, _), connected_blocks in self.connections.items():
-            for dst_block, _ in connected_blocks:
-                graph.edge(str(self.blocks.index(src_block)), str(
-                    self.blocks.index(dst_block)))
+        for src, connected_blocks in self.connections.items():
+            for dst in connected_blocks:
+                graph.edge(str(self.blocks.index(src.block)), str(
+                    self.blocks.index(dst.block)))
 
          # Position the title node at the top of the graph
         graph.attr(rank="min", rankdir="LR")
@@ -301,6 +301,21 @@ class System:
                              "id", "from", "to", "description", "type"], tablefmt="fancy_grid")
 
         print(f"{self.name} Connections:\n{table_str}\n")
+
+        # Reset the table data
+        table_data = []
+        # Print Not Connected Ports in the System
+        for block in self.blocks:
+            for port in block.inputs:
+                if port.connected == False:
+                    # Add the connection's attributes to the table data
+                    table_data.append([port.block.name, port.port_id])
+
+        # Format the data as a table using the tabulate library
+        table_str = tabulate(table_data, headers=[
+                             "Block Name", "Port"], tablefmt="fancy_grid")
+
+        print(f"{self.name} Unconnectioned:\n{table_str}\n")
 
     def __str__(self):
 
