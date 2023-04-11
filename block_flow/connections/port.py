@@ -23,13 +23,21 @@ class Port:
         # Signal value
         self._data = data_type()
 
+        # Connected?
+        self.connected = False
+
 
 class InputPort(Port):
     def __init__(self, block: "Block", data_type: Type, name: str = None):
         super().__init__(block, data_type, name)
 
-    def get_input(self):
-        return self.signal.data
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        self._data = value
 
 
 class OutputPort(Port):
@@ -39,5 +47,10 @@ class OutputPort(Port):
         # List of connected signals
         self.connections = []
 
-    def set_output(self, data):
-        self.signal.data = data
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        self._data = value

@@ -1,3 +1,4 @@
+from block_flow.connections.port import OutputPort, InputPort
 from block_flow.connections.signal import Signal
 from block_flow.blocks.block import Block
 
@@ -33,7 +34,14 @@ class Add(Block):
                     f"Invalid operation: {operation} at input index {i}")
 
         # Create a signal for the output
-        self._add_signal(0, Signal(self))
+        # self._add_signal(0, Signal(self))
+
+        # Create a port for the output
+        self._add_output_port(0, OutputPort(self, float))
+
+        # Create a ports for the inputs
+        for i in range(num_inputs):
+            self._add_input_port(i, OutputPort(self, float))
 
     def update(self, t: float) -> None:
 
@@ -53,7 +61,7 @@ class Add(Block):
 
             result = operation_func(result, input.data)
 
-        self.outputs[0].data = [result]
+        self.outputs[0].data = result
 
 
 class Div(Block):

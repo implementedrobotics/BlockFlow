@@ -1,5 +1,6 @@
 from block_flow.blocks.block import Block
 from block_flow.connections.signal import Signal
+from block_flow.connections.port import InputPort, OutputPort
 
 
 class Constant(Block):
@@ -10,5 +11,13 @@ class Constant(Block):
         # Create a signal for the output
         self._add_signal(0, Signal(self))
 
+        # Create a port for the output
+        self._add_output_port(0, OutputPort(self, type(value)))
+
+        # Set Initial Output
+        self.outputs[0].data = (self.value)
+
     def update(self, t) -> None:
+
+        # Set Output
         self.outputs[0].data = (self.value)

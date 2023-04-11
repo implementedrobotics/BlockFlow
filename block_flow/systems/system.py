@@ -1,5 +1,6 @@
 from tabulate import tabulate
 from collections import defaultdict, deque
+from block_flow.connections.port import OutputPort, InputPort
 from block_flow.blocks.subsystem.source import SourceBlock
 from block_flow.blocks.block import Block
 from block_flow.blocks.subsystem.subsystem import SubSystemBlock
@@ -96,35 +97,79 @@ class System:
             if block.sample_time is None or abs(t % block.sample_time) < epsilon:
                 block.update(t)
 
-    def connect(self, signal: Signal, dest: Block, dest_port: int, dep: bool = True) -> None:
+    # def connect(self, signal: Signal, dest: Block, dest_port: int, dep: bool = True) -> None:
+
+    #     # Error Check
+    #     all_blocks = self.blocks.copy()
+    #     for block in self.blocks:
+    #         if isinstance(block, SubSystemBlock):
+    #             all_blocks += block.sub_system.blocks
+
+    #     if signal.block not in all_blocks or dest not in all_blocks:
+    #         raise ValueError("Signal block not in system!")
+
+    #     if dest_port >= dest.num_inputs:
+    #         raise ValueError("Invalid destination index")
+
+    #     # Add a dependency from the signal's block to the destination block
+    #     if not isinstance(dest, DelayBlock) and not isinstance(dest, SourceBlock):
+    #         self._add_dependency(signal.block, dest)
+
+    #     # Connect a signal to a block input
+    #     dest.inputs[dest_port] = signal
+
+    #     # Do some type mapping if this is a source/sink block from a subsystem.  For better debug print
+    #     if isinstance(dest, SourceBlock):
+    #         dest_port = dest.port_id
+    #         dest = dest.system_parent
+
+    #     # Update the connections dictionary
+    #     self.connections[(signal.block, signal.port_id)
+    #                      ].append((dest, dest_port))
+
+    def connect(self, source: OutputPort, dest: InputPort, dep: bool = True) -> None:
 
         # Error Check
+        if source is None:
+            raise ValueError("Invalid Output Port")
+
+        if dest is None:
+            raise ValueError("Invalid Input Port")
+
         all_blocks = self.blocks.copy()
         for block in self.blocks:
             if isinstance(block, SubSystemBlock):
                 all_blocks += block.sub_system.blocks
 
-        if signal.block not in all_blocks or dest not in all_blocks:
-            raise ValueError("Signal block not in system!")
-
-        if dest_port >= dest.num_inputs:
-            raise ValueError("Invalid destination index")
+        if source.block not in all_blocks or dest.block not in all_blocks:
+            raise ValueError("Block Port not in system!")
 
         # Add a dependency from the signal's block to the destination block
-        if not isinstance(dest, DelayBlock) and not isinstance(dest, SourceBlock):
-            self._add_dependency(signal.block, dest)
+        if not isinstance(dest.block, DelayBlock) and not isinstance(dest.block, SourceBlock):
+            self._add_dependency(source.block, dest.block)
 
         # Connect a signal to a block input
-        dest.inputs[dest_port] = signal
+        dest._data = source._data
+        # dest.inputs[dest_port] = signal
+
+        if dest.connected:
+            raise ValueError("Input Port already connected")
+
+        # Verify not already connected
+        # if dest not in source.connections:
+        #     source.connections.append(dest)
+        # else:
+        #     raise ValueError("Input Port already connected")
+
+        dest.connected = True
 
         # Do some type mapping if this is a source/sink block from a subsystem.  For better debug print
-        if isinstance(dest, SourceBlock):
-            dest_port = dest.port_id
-            dest = dest.system_parent
+        if isinstance(dest.block, SourceBlock):
+            # dest_port = dest.port_id
+            dest = dest.block.system_parent
 
         # Update the connections dictionary
-        self.connections[(signal.block, signal.port_id)
-                         ].append((dest, dest_port))
+        self.connections[source].append(dest)
 
     def compile(self) -> None:
 
@@ -205,19 +250,46 @@ class System:
 
         print(f"System [{self.name}]:\n\n{table_str}")
 
+    # def print_connections(self) -> None:
+    #     # Prepare the data for the table
+    #     table_data = []
+
+    #     # Iterate over the connections
+    #     i = 0
+    #     for (src_block, src_port), connected_blocks in self.connections.items():
+    #         for dst_block, dst_port in connected_blocks:
+    #             # Extract information for the table
+    #             from_block = f"{src_block.name}[{src_port}]"
+    #             to_block = f"{dst_block.name}[{dst_port}]"
+    #             description = f"{src_block.name}[{src_port}] --> {dst_block.name}[{dst_port}]"
+    #             data_type = type(src_block.outputs[src_port].data).__name__
+
+    #             # Add the connection's attributes to the table data
+    #             table_data.append(
+    #                 [i, from_block, to_block, description, data_type])
+
+    #         i += 1
+    #     # Format the data as a table using the tabulate library
+    #     table_str = tabulate(table_data, headers=[
+    #                          "id", "from", "to", "description", "type"], tablefmt="fancy_grid")
+
+    #     print(f"{self.name} Connections:\n{table_str}\n")
+
     def print_connections(self) -> None:
         # Prepare the data for the table
         table_data = []
 
         # Iterate over the connections
         i = 0
-        for (src_block, src_port), connected_blocks in self.connections.items():
-            for dst_block, dst_port in connected_blocks:
+        for src_port, connected_blocks in self.connections.items():
+            for dst_port in connected_blocks:
                 # Extract information for the table
-                from_block = f"{src_block.name}[{src_port}]"
-                to_block = f"{dst_block.name}[{dst_port}]"
-                description = f"{src_block.name}[{src_port}] --> {dst_block.name}[{dst_port}]"
-                data_type = type(src_block.outputs[src_port].data).__name__
+                from_block = f"{src_port.block.name}[{src_port.port_id}]"
+                to_block = f"{dst_port.block.name}[{dst_port.port_id}]"
+                description = f"{src_port.block.name}[{src_port.port_id}] --> {dst_port.block.name}[{dst_port.port_id}]"
+                # data_type = type(
+                #     src_port.block.outputs[src_port.port_id].data).__name__
+                data_type = src_port.data_type.__name__
 
                 # Add the connection's attributes to the table data
                 table_data.append(

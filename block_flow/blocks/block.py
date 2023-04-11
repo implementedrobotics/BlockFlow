@@ -1,4 +1,5 @@
 from block_flow.connections.signal import Signal
+from block_flow.connections.port import InputPort, OutputPort
 
 
 class Block:
@@ -32,6 +33,32 @@ class Block:
         signal.port_id = idx
 
         self.outputs[idx] = signal
+
+    def _add_output_port(self, idx: int, port: OutputPort) -> None:
+
+        # Add a port to the block's input list
+
+        if idx >= self.num_outputs:
+            raise ValueError("Invalid output port index")
+
+        # Set the signal's port ID
+        port.port_id = idx
+
+        # Add the port to the block's output list
+        self.outputs[idx] = port
+
+    def _add_input_port(self, idx: int, port: InputPort) -> None:
+
+        # Add a port to the block's input list
+
+        if idx >= self.num_inputs:
+            raise ValueError("Invalid input port index")
+
+        # Set the signal's port ID
+        port.port_id = idx
+
+        # Add the port to the block's input list
+        self.inputs[idx] = port
 
     def update(self, t: float) -> None:
         raise NotImplementedError()
