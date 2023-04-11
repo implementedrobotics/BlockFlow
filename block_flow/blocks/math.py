@@ -1,4 +1,4 @@
-from block_flow.connections.signals import Signal
+from block_flow.connections.signal import Signal
 from block_flow.blocks.block import Block
 
 from functools import reduce

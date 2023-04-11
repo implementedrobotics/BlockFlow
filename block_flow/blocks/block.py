@@ -1,4 +1,4 @@
-from block_flow.connections.signals import Signal
+from block_flow.connections.signal import Signal
 
 
 class Block:

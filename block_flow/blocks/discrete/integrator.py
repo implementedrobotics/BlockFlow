@@ -1,5 +1,5 @@
 from block_flow.blocks.block import Block
-from block_flow.connections.signals import Signal
+from block_flow.connections.signal import Signal
 
 
 class Integrator(Block):

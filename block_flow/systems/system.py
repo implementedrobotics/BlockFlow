@@ -3,7 +3,7 @@ from collections import defaultdict, deque
 from block_flow.blocks.subsystem.source import SourceBlock
 from block_flow.blocks.block import Block
 from block_flow.blocks.subsystem.subsystem import SubSystemBlock
-from block_flow.connections.signals import Signal
+from block_flow.connections.signal import Signal
 from block_flow.blocks.discrete.delay import DelayBlock
 from block_flow.utils.time import lcm, gcm_of_floats, round_time
 

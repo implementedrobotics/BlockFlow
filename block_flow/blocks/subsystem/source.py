@@ -5,7 +5,7 @@ from block_flow.blocks.block import Block
 if TYPE_CHECKING:
     from block_flow.blocks.subsystem.subsystem import SubSystemBlock
 
-from block_flow.connections.signals import Signal
+from block_flow.connections.signal import Signal
 
 
 class SourceBlock(Block):

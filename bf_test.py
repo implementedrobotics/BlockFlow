@@ -4,7 +4,7 @@ from block_flow.blocks.subsystem.subsystem import SubSystemBlock
 from block_flow.blocks.sinks.scope import Scope
 from block_flow.blocks.discrete.delay import ZeroOrderHold
 from block_flow.systems.system import System
-from block_flow.connections.signals import Signal
+from block_flow.connections.signal import Signal
 from block_flow.blocks.sources.constant import Constant
 from block_flow.blocks.math import Add, Mul
 
