@@ -13,27 +13,52 @@ class SubSystemBlock(Block):
         num_inputs = 0
         num_outputs = 0
 
-        source_port_ids = set()
-        sink_port_ids = set()
+        sources = set()
+        sinks = set()
 
         # Count the number of source and sink blocks in the nested system
         for block in sub_system.blocks:
             if isinstance(block, SourceBlock):
-                if block.port_id in source_port_ids:
-                    raise ValueError(
-                        f"Duplicate source port id {block.port_id} in sub system {sub_system.name}")
-                source_port_ids.add(block.port_id)
-            elif isinstance(block, SinkBlock):
-                if block.port_id in sink_port_ids:
-                    raise ValueError(
-                        f"Duplicate sink port id {block.port_id} in sub system {sub_system.name}")
-                sink_port_ids.add(block.port_id)
+                # if block.port_id in source_ports:
+                #     raise ValueError(
+                #         f"Duplicate source port id {block.port_id} in sub system {sub_system.name}")
+                block.system_parent = self
+                sources.add(block)
 
-        num_inputs = len(source_port_ids)
-        num_outputs = len(sink_port_ids)
+            elif isinstance(block, SinkBlock):
+                # if block.port_id in sink_port_ids:
+                #     raise ValueError(
+                #         f"Duplicate sink port id {block.port_id} in sub system {sub_system.name}")
+                block.system_parent = self
+                sinks.add(block)
+
+        num_inputs = len(sources)
+        num_outputs = len(sinks)
 
         super().__init__(num_inputs=num_inputs, num_outputs=num_outputs, name=name)
 
+        source_ports = set()
+        sink_ports = set()
+
+        for source in sources:
+            # Map the source to the SubSystemBlock input port
+            if source.port_id in source_ports:
+                raise ValueError(
+                    f"Duplicate source port id {source.port_id} in sub system {sub_system.name}")
+
+            self._add_input_port(source.port_id, source.inputs[0])
+            source_ports.add(source.port_id)
+
+        for sink in sinks:
+            # Map the sink to the SubSystemBlock output port
+            if sink.port_id in sink_ports:
+                raise ValueError(
+                    f"Duplicate sink port id {sink.port_id} in sub system {sub_system.name}")
+
+            self._add_output_port(sink.port_id, sink.outputs[0])
+            sink_ports.add(sink.port_id)
+
+        # Compile
         self.sub_system = sub_system
         self.sub_system.compile()
 

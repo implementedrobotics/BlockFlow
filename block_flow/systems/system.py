@@ -1,10 +1,10 @@
+import copy
 from tabulate import tabulate
 from collections import defaultdict, deque
 from block_flow.connections.port import OutputPort, InputPort
 from block_flow.blocks.subsystem.source import SourceBlock
 from block_flow.blocks.block import Block
 from block_flow.blocks.subsystem.subsystem import SubSystemBlock
-from block_flow.connections.signal import Signal
 from block_flow.blocks.discrete.delay import DelayBlock
 from block_flow.utils.time import lcm, gcm_of_floats, round_time
 
@@ -33,13 +33,15 @@ class System:
         # Flag to indicate if the system has been compiled
         self.compiled = False
 
-    def add_block(self, block: Block) -> None:
+    def add_block(self, block: Block) -> Block:
 
         # Add a block to the system
         self.blocks.append(block)
 
-        # Invalidate block
+        # Invalidate system
         self.compiled = False
+
+        return block
 
     def _add_dependency(self, source: Block, dest: Block) -> None:
 
@@ -97,36 +99,6 @@ class System:
             if block.sample_time is None or abs(t % block.sample_time) < epsilon:
                 block.update(t)
 
-    # def connect(self, signal: Signal, dest: Block, dest_port: int, dep: bool = True) -> None:
-
-    #     # Error Check
-    #     all_blocks = self.blocks.copy()
-    #     for block in self.blocks:
-    #         if isinstance(block, SubSystemBlock):
-    #             all_blocks += block.sub_system.blocks
-
-    #     if signal.block not in all_blocks or dest not in all_blocks:
-    #         raise ValueError("Signal block not in system!")
-
-    #     if dest_port >= dest.num_inputs:
-    #         raise ValueError("Invalid destination index")
-
-    #     # Add a dependency from the signal's block to the destination block
-    #     if not isinstance(dest, DelayBlock) and not isinstance(dest, SourceBlock):
-    #         self._add_dependency(signal.block, dest)
-
-    #     # Connect a signal to a block input
-    #     dest.inputs[dest_port] = signal
-
-    #     # Do some type mapping if this is a source/sink block from a subsystem.  For better debug print
-    #     if isinstance(dest, SourceBlock):
-    #         dest_port = dest.port_id
-    #         dest = dest.system_parent
-
-    #     # Update the connections dictionary
-    #     self.connections[(signal.block, signal.port_id)
-    #                      ].append((dest, dest_port))
-
     def connect(self, source: OutputPort, dest: InputPort, dep: bool = True) -> None:
 
         # Error Check
@@ -141,8 +113,13 @@ class System:
             if isinstance(block, SubSystemBlock):
                 all_blocks += block.sub_system.blocks
 
-        if source.block not in all_blocks or dest.block not in all_blocks:
-            raise ValueError("Block Port not in system!")
+        if source.block not in all_blocks:
+            raise ValueError(
+                f"Block: [{source.block.name}] has NOT defined in system!")
+
+        if dest.block not in all_blocks:
+            raise ValueError(
+                f"Block: [{dest.block.name}] has NOT defined in system!")
 
         # Add a dependency from the signal's block to the destination block
         if not isinstance(dest.block, DelayBlock) and not isinstance(dest.block, SourceBlock):
@@ -150,11 +127,9 @@ class System:
 
         # Connect a signal to a block input
 
+        # TODO: This needs more thought on how to connect these signals and error check.  I.e. data types, scalar vs vector, etc.
         if dest.connected:
             raise ValueError("Input Port already connected")
-
-        # dest._data = source._data
-        # dest.inputs[dest_port] = signal
 
         dest.connected = source._connect(dest)
 
@@ -168,12 +143,21 @@ class System:
 
     def compile(self) -> None:
 
+        if self.compiled:
+            print("System already compiled")
+            return
         self.sorted_blocks = []
+
+        # Custom copy of the block_deps dictionary
+        block_deps = defaultdict(set)
+        for block in self.block_deps:
+            block_deps[block] = self.block_deps[block].copy()
+
         queue = deque()
 
         # Add blocks with no incoming edges to the queue
         for block in self.blocks:
-            if len(self.block_deps[block]) == 0:
+            if len(block_deps[block]) == 0:
                 queue.append(block)
 
         # Process the blocks in the queue
@@ -183,9 +167,9 @@ class System:
 
             # Iterate through all blocks in the system and remove the current block from their dependencies
             for block in self.blocks:
-                if current_block in self.block_deps[block]:
-                    self.block_deps[block].remove(current_block)
-                    if len(self.block_deps[block]) == 0:
+                if current_block in block_deps[block]:
+                    block_deps[block].remove(current_block)
+                    if len(block_deps[block]) == 0:
                         queue.append(block)
 
         # If the number of sorted blocks is not equal to the number of blocks in the system,
@@ -245,31 +229,6 @@ class System:
 
         print(f"System [{self.name}]:\n\n{table_str}")
 
-    # def print_connections(self) -> None:
-    #     # Prepare the data for the table
-    #     table_data = []
-
-    #     # Iterate over the connections
-    #     i = 0
-    #     for (src_block, src_port), connected_blocks in self.connections.items():
-    #         for dst_block, dst_port in connected_blocks:
-    #             # Extract information for the table
-    #             from_block = f"{src_block.name}[{src_port}]"
-    #             to_block = f"{dst_block.name}[{dst_port}]"
-    #             description = f"{src_block.name}[{src_port}] --> {dst_block.name}[{dst_port}]"
-    #             data_type = type(src_block.outputs[src_port].data).__name__
-
-    #             # Add the connection's attributes to the table data
-    #             table_data.append(
-    #                 [i, from_block, to_block, description, data_type])
-
-    #         i += 1
-    #     # Format the data as a table using the tabulate library
-    #     table_str = tabulate(table_data, headers=[
-    #                          "id", "from", "to", "description", "type"], tablefmt="fancy_grid")
-
-    #     print(f"{self.name} Connections:\n{table_str}\n")
-
     def print_connections(self) -> None:
         # Prepare the data for the table
         table_data = []
@@ -288,7 +247,9 @@ class System:
                 description = f"{src_port.block.name}[{src_port.port_id}] --> {dst_block.name}[{dst_port.port_id}]"
                 # data_type = type(
                 #     src_port.block.outputs[src_port.port_id].data).__name__
-                data_type = src_port.data_type.__name__
+                # data_type =
+                data_type = ", ".join(
+                    data_type.__name__ for data_type in src_port.data_types)
 
                 # Add the connection's attributes to the table data
                 table_data.append(
@@ -316,6 +277,11 @@ class System:
                 "Block Name", "Port"], tablefmt="fancy_grid")
 
             print(f"{self.name} Unconnectioned:\n{table_str}\n")
+
+        # Print Subsystem Connections
+        for block in self.blocks:
+            if isinstance(block, SubSystemBlock):
+                block.sub_system.print_connections()
 
     def __str__(self):
 

@@ -1,5 +1,5 @@
 from block_flow.blocks.block import Block
-from block_flow.connections.signal import Signal
+from block_flow.connections.port import InputPort
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -18,7 +18,12 @@ class Scope(Block):
         self.axis.set_xlabel('Time')
         self.axis.set_ylabel('Input Data')
 
+        # Create a ports for the inputs
+        for i in range(num_inputs):
+            self._add_input_port(i, InputPort(self, [float, int]))
+
     def update(self, t: float) -> None:
+
         self.time_data.append(t)
         self.input_data.append(self.inputs[0].data)
 
@@ -35,5 +40,5 @@ class Scope(Block):
 
     def view(self) -> None:
         plt.show()
-        print(f"self.time_data: {self.time_data}")
-        print(f"self.input_data: {self.input_data}")
+        # print(f"self.time_data: {self.time_data}")
+        # print(f"self.input_data: {self.input_data}")

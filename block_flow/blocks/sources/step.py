@@ -1,5 +1,5 @@
 from block_flow.blocks.block import Block
-from block_flow.connections.signal import Signal
+from block_flow.connections.port import OutputPort
 
 
 class Step(Block):
@@ -9,8 +9,11 @@ class Step(Block):
         self.init_val = init_val
         self.step_val = step_val
 
-        # Create a signal for the output
-        self._add_signal(0, Signal(self))
+        # Create a port for the output
+        self._add_output_port(0, OutputPort(self, [type(self.init_val)]))
+
+        # Set Initial Output
+        self.outputs[0].data = (self.init_value)
 
     def update(self, t: float) -> None:
         self.outputs[0].data = (self.step_val if t >=

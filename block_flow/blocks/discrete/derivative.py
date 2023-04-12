@@ -1,5 +1,5 @@
 from block_flow.blocks.block import Block
-from block_flow.connections.signals import Signal
+from block_flow.connections.port import OutputPort, InputPort
 
 
 class Derivative(Block):
@@ -8,8 +8,11 @@ class Derivative(Block):
         self.dt = dt
         self.prev_input = None
 
-        # Create a signal for the output
-        self._add_signal(0, Signal(self))
+        # Create a port for the output
+        self._add_output_port(0, OutputPort(self, [float, int]))
+
+        # Create a ports for the inputs
+        self._add_input_port(0, InputPort(self, [float, int]))
 
     def update(self, t: float) -> None:
         if self.prev_input is not None:

@@ -9,67 +9,49 @@ from block_flow.blocks.sources.constant import Constant
 from block_flow.blocks.math import Add, Mul
 
 
-constant_5 = Constant(5, sample_time=1, name="Constant 5")
-
-constant_2 = Constant(2, sample_time=1, name="Constant 2")
-add_block = Add(num_inputs=2, name="Add")
-# add_block_2 = Add(name="Add 2")
 # zoh = ZeroOrderHold(name="ZOH", sample_time=1)
-# scope = Scope(num_inputs=1, max_time_steps=100, name="Scope")
-# add_test = Add(num_inputs=2, name="Sub")
-# mul_test = Mul(num_inputs=2, sample_time=1, name="Mul")
+
 system = System("Test")
 
-# system.add_block(constant_5)
-# system.add_block(constant_2)
-# # system.add_block(mul_test)
-# system.add_block(add_block)
-# # # system.add_block(add_block_2)
-# # # system.add_block(scope)
-# # # system.add_block(zoh)
-
-
-# system.connect(constant_5.outputs[0], add_block.inputs[0])
-# system.connect(constant_2.outputs[0], add_block.inputs[1])
-# system.connect(constant_2.outputs[0], mul_test, 2)
-# system.connect(constant_2.outputs[0], mul_test, 3)
-# system.connect(constant_2.outputs[0], mul_test, 4)
-# system.connect(constant_2.outputs[0], mul_test, 5)
-# system.connect(constant_2.outputs[0], mul_test, 6)
-
-# system.connect(constant_5.outputs[0], add_block, 0)
-
-# system.connect(zoh.outputs[0], add_block, 0)
-# system.connect(constant_2.outputs[0], add_block, 1)
-# system.connect(add_block.outputs[0], add_block_2, 0)
-# system.connect(constant_2.outputs[0], add_block_2, 1)
-
-# system.connect(add_block_2.outputs[0], scope, 0)
-# system.connect(add_block_2.outputs[0], zoh, 0)
-# system.compile()
-
-
 sub_system = System(name="Subsystem")
-sub_system_block = SubSystemBlock(sub_system, "Subsystem")
 
-source = SourceBlock(system_parent=sub_system_block, port_id=0, name="Source")
-sink = SinkBlock(system_parent=sub_system_block, port_id=0, name="Sink")
-sub_system.add_block(source)
-sub_system.add_block(constant_2)
-sub_system.add_block(add_block)
-sub_system.add_block(sink)
-sub_system.connect(source.outputs[0], add_block.inputs[0])
-sub_system.connect(constant_2.outputs[0], add_block.inputs[1])
-sub_system.connect(add_block.outputs[0], sink.inputs[0])
-sub_system.compile()
-# sub_system.print_connections()
 
-system.add_block(sub_system_block)
-system.add_block(constant_5)
-system.connect(constant_5.outputs[0], source.inputs[0])
+# Add Subsystem Blocks
+constant_2 = sub_system.add_block(
+    Constant(2.1, sample_time=1, name="Constant 2"))
+mul_block = sub_system.add_block(Mul(num_inputs=2, sample_time=1, name="Mul"))
+
+# Add Source and Sinks
+source = sub_system.add_block(SourceBlock(port_id=0, name="Source"))
+sink = sub_system.add_block(SinkBlock(port_id=0, name="Sink"))
+
+# Connect the blocks
+sub_system.connect(source.outputs[0], mul_block.inputs[0])
+sub_system.connect(constant_2.outputs[0], mul_block.inputs[1])
+sub_system.connect(mul_block.outputs[0], sink.inputs[0])
+
+# Create Subsystem Block
+sub_system_block = system.add_block(SubSystemBlock(sub_system, "Subsystem"))
+
+constant_5 = system.add_block(Constant(5, sample_time=1, name="Constant 5"))
+scope = system.add_block(Scope(num_inputs=1, max_time_steps=100, name="Scope"))
+
+# Connect the blocks
+system.connect(sub_system_block.outputs[0], scope.inputs[0])
+system.connect(constant_5.outputs[0], sub_system_block.inputs[0])
+
+# Compile the system
 system.compile()
-system.run(1, dt=0.5)
-print(add_block.outputs[0].data)
+
+# Debug Print Connections
+system.print_connections()
+
+# Run the system
+system.run(5, dt=0.05)
+
+# Hold Plot
+scope.view()
+# print(sub_system_block.outputs[0].data)
 # system.print_connections()
 
 
@@ -78,10 +60,6 @@ print(add_block.outputs[0].data)
 # system.to_graphviz().render(system.name, format="png")
 # sub_system.print_connections()
 # system.update(1)
-
-
-# print(f"result: {sink.outputs[0].data}")
-# print(f"result: {mul_test.outputs[0].data}")
 
 # Start the timer
 # start_time = time.perf_counter()
@@ -96,6 +74,3 @@ print(add_block.outputs[0].data)
 # elapsed_time = end_time - start_time
 
 # print(f"Elapsed time: {elapsed_time} seconds")
-
-
-# scope.view()

@@ -1,5 +1,4 @@
 from block_flow.connections.port import OutputPort, InputPort
-from block_flow.connections.signal import Signal
 from block_flow.blocks.block import Block
 
 from functools import reduce
@@ -33,15 +32,12 @@ class Add(Block):
                 raise ValueError(
                     f"Invalid operation: {operation} at input index {i}")
 
-        # Create a signal for the output
-        # self._add_signal(0, Signal(self))
-
         # Create a port for the output
-        self._add_output_port(0, OutputPort(self, float))
+        self._add_output_port(0, OutputPort(self, [float, int]))
 
         # Create a ports for the inputs
         for i in range(num_inputs):
-            self._add_input_port(i, InputPort(self, float))
+            self._add_input_port(i, InputPort(self, [float, int]))
 
     def update(self, t: float) -> None:
 
@@ -71,17 +67,17 @@ class Div(Block):
 
         super().__init__(num_inputs=num_inputs, num_outputs=1, name=name)
 
-        # Create a signal for the output
-        self._add_signal(0, Signal(self))
+        # Create a port for the output
+        self._add_output_port(0, OutputPort(self, [float, int]))
+
+        # Create a ports for the inputs
+        for i in range(num_inputs):
+            self._add_input_port(i, InputPort(self, [float, int]))
 
     def update(self, t):
 
         output_data = reduce(
             operator.truediv, (input_signal.data for input_signal in self.inputs))
-
-        # output_data = self.inputs[0].data
-        # for i in range(1, self.num_inputs):
-        #     output_data /= self.inputs[i].data
 
         self.outputs[0].data = output_data
 
@@ -94,16 +90,17 @@ class Mul(Block):
         super().__init__(num_inputs=num_inputs, num_outputs=1,
                          sample_time=sample_time, name=name)
 
-        # Create a signal for the output
-        self._add_signal(0, Signal(self))
+        # Create a port for the output
+        self._add_output_port(0, OutputPort(self, [float, int]))
+
+        # Create a ports for the inputs
+        for i in range(num_inputs):
+            self._add_input_port(i, InputPort(self, [float, int]))
 
     def update(self, t: float) -> None:
 
         output_data = reduce(
             operator.mul, (input_signal.data for input_signal in self.inputs))
-        # output_data = self.inputs[0].data
-        # for i in range(1, self.num_inputs):
-        #     output_data *= self.inputs[i].data
 
         self.outputs[0].data = output_data
 
@@ -113,8 +110,11 @@ class Gain(Block):
         super().__init__(num_inputs=1, num_outputs=1, name=name)
         self.gain = gain
 
-        # Create a signal for the output
-        self._add_signal(0, Signal(self))
+        # Create a port for the output
+        self._add_output_port(0, OutputPort(self, [float, int]))
+
+        # Create a ports for the inputs
+        self._add_input_port(0, InputPort(self, [float, int]))
 
     def update(self, t: float) -> None:
         self.outputs[0].data = (self.inputs[0].data * self.gain)

@@ -1,5 +1,5 @@
 from block_flow.blocks.block import Block
-from block_flow.connections.signal import Signal
+from block_flow.connections.port import OutputPort, InputPort
 
 
 class DelayBlock(Block):
@@ -12,8 +12,11 @@ class ZeroOrderHold(DelayBlock):
         self.sample_time = sample_time
         self.last_sample_time = None
 
-        # Create a signal for the output
-        self._add_signal(0, Signal(self))
+        # Create a port for the output
+        self._add_output_port(0, OutputPort(self, [float, int]))
+
+        # Create a ports for the inputs
+        self._add_input_port(0, InputPort(self, [float, int]))
 
         # TODO: Initial Value Param?
         self.outputs[0].data = 0
