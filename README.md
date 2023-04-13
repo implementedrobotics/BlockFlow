@@ -13,6 +13,12 @@ BlockFlow is a modular, block-based simulation framework designed for creating a
 - Visual representation of system using Graphviz
 - Utility functions for system management, debugging, and visualization
 
+## Prerequisites
+
+- Python 3.10 or higher
+- Graphviz
+  `sudo apt install graphviz`
+
 ## Getting Started
 
 To start using BlockFlow, clone this repository or download the source code. Install any required dependencies and start creating your own systems.
