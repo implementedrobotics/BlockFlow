@@ -20,7 +20,7 @@ class Scope(Block):
 
         # Create a ports for the inputs
         for i in range(num_inputs):
-            self._add_input_port(i, InputPort(self, [float, int]))
+            self._add_input_port(i, InputPort(self, (float, int)))
 
     def update(self, t: float) -> None:
 

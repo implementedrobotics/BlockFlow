@@ -21,10 +21,10 @@ class SourceBlock(Block):
         self.port_id = port_id
 
         # Create a port for the output
-        self._add_output_port(0, OutputPort(self, [float, int]))
+        self._add_output_port(0, OutputPort(self, (float, int)))
 
         # Create a port for the input
-        self._add_input_port(0, InputPort(self, [float, int]))
+        self._add_input_port(0, InputPort(self, (float, int)))
 
     def set_parent(self, system_parent: "SubSystemBlock") -> None:
         self.system_parent = system_parent

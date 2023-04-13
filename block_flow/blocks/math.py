@@ -33,11 +33,11 @@ class Add(Block):
                     f"Invalid operation: {operation} at input index {i}")
 
         # Create a port for the output
-        self._add_output_port(0, OutputPort(self, [float, int]))
+        self._add_output_port(0, OutputPort(self, (float, int)))
 
         # Create a ports for the inputs
         for i in range(num_inputs):
-            self._add_input_port(i, InputPort(self, [float, int]))
+            self._add_input_port(i, InputPort(self, (float, int)))
 
     def update(self, t: float) -> None:
 
@@ -68,11 +68,11 @@ class Div(Block):
         super().__init__(num_inputs=num_inputs, num_outputs=1, name=name)
 
         # Create a port for the output
-        self._add_output_port(0, OutputPort(self, [float, int]))
+        self._add_output_port(0, OutputPort(self, (float, int)))
 
         # Create a ports for the inputs
         for i in range(num_inputs):
-            self._add_input_port(i, InputPort(self, [float, int]))
+            self._add_input_port(i, InputPort(self, (float, int)))
 
     def update(self, t):
 
@@ -91,11 +91,11 @@ class Mul(Block):
                          sample_time=sample_time, name=name)
 
         # Create a port for the output
-        self._add_output_port(0, OutputPort(self, [float, int]))
+        self._add_output_port(0, OutputPort(self, (float, int)))
 
         # Create a ports for the inputs
         for i in range(num_inputs):
-            self._add_input_port(i, InputPort(self, [float, int]))
+            self._add_input_port(i, InputPort(self, (float, int)))
 
     def update(self, t: float) -> None:
 
@@ -111,10 +111,10 @@ class Gain(Block):
         self.gain = gain
 
         # Create a port for the output
-        self._add_output_port(0, OutputPort(self, [float, int]))
+        self._add_output_port(0, OutputPort(self, (float, int)))
 
         # Create a ports for the inputs
-        self._add_input_port(0, InputPort(self, [float, int]))
+        self._add_input_port(0, InputPort(self, (float, int)))
 
     def update(self, t: float) -> None:
         self.outputs[0].data = (self.inputs[0].data * self.gain)

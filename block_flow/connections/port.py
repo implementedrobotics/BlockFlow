@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-from typing import Type, Union
+from typing import Type, Union, Tuple
 
 import numpy as np
 
@@ -26,7 +26,7 @@ class PortData:
 
 
 class Port:
-    def __init__(self, block: "Block", data_types: list[Type[Union[int, float, bool, np.ndarray]]], name: str = None):
+    def __init__(self, block: "Block", data_types: Union[Type, Tuple[Type]], name: str = None):
 
         # Block to which the signal belongs
         self.block = block
@@ -82,7 +82,6 @@ class OutputPort(Port):
     @data.setter
     def data(self, value):
         if not any(isinstance(value, data_type) for data_type in self.data_types):
-            print(f"Got: {type(value)}")
             raise TypeError(
                 f"Data must be one of the following types: {', '.join(str(t) for t in self.data_types)}")
         self._port_data._value = value
