@@ -1,4 +1,3 @@
-import copy
 from tabulate import tabulate
 from collections import defaultdict, deque
 from block_flow.connections.port import OutputPort, InputPort
@@ -70,12 +69,14 @@ class System:
 
     def run(self, duration: float | None = None, dt: float | None = None) -> None:
 
+        num_steps = duration / dt
         if dt is None:
             dt = self.gcd_sample_time()
 
         print(f"Running system for {duration} seconds with dt={dt}...")
         start_time = time.time()
         t = 0
+        test_steps = 0
         if duration is None:
             # Run forever
             while True:
@@ -84,10 +85,23 @@ class System:
                 time.sleep(dt)
         else:
             # Run for the specified duration
-            while time.time() - start_time < duration:
+            # This loop is "real time"
+            # while time.time() - start_time < duration:
+            #     start_loop_time = time.perf_counter()
+
+            #     t = round_time(time.time() - start_time)
+            #     self.update(t)
+            #     elapsed_time = time.perf_counter() - start_loop_time
+            #     sleep_time = max(dt - elapsed_time, 0)
+            #     time.sleep(sleep_time)
+
+            # This loop is "simulation time"
+            while test_steps < num_steps:
                 t = round_time(time.time() - start_time)
                 self.update(t)
-                time.sleep(dt)
+                test_steps += 1
+
+        # print(test_steps)
 
     def update(self, t: float) -> None:
 
@@ -225,7 +239,7 @@ class System:
 
         # Format the data as a table using the tabulate library
         table_str = tabulate(table_data, headers=[
-                             "Id", "Name", "Inputs", "Outputs", "Type"], tablefmt="fancy_grid")
+            "Id", "Name", "Inputs", "Outputs", "Type"], tablefmt="fancy_grid")
 
         print(f"System [{self.name}]:\n\n{table_str}")
 
@@ -258,7 +272,7 @@ class System:
             i += 1
         # Format the data as a table using the tabulate library
         table_str = tabulate(table_data, headers=[
-                             "id", "from", "to", "description", "type"], tablefmt="fancy_grid")
+            "id", "from", "to", "description", "type"], tablefmt="fancy_grid")
 
         print(f"{self.name} Connections:\n{table_str}\n")
 

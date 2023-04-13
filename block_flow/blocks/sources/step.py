@@ -10,7 +10,7 @@ class Step(Block):
         self.step_val = step_val
 
         # Create a port for the output
-        self._add_output_port(0, OutputPort(self, [type(self.init_val)]))
+        self._add_output_port(0, OutputPort(self, (type(self.init_val))))
 
         # Set Initial Output
         self.outputs[0].data = (self.init_value)

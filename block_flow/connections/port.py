@@ -13,8 +13,8 @@ VECTOR_DATA_TYPES = (np.ndarray,)
 
 
 class PortData:
-    def __init__(self, value):
-        self._value = None
+    def __init__(self, value=None):
+        self._value = value
 
     @property
     def data(self):
@@ -31,8 +31,11 @@ class Port:
         # Block to which the signal belongs
         self.block = block
 
-        # Data Type
-        self.data_types = data_types
+        # Ensure data_type is always a tuple, even when a single type is provided
+        if isinstance(data_types, tuple):
+            self.data_types = data_types
+        else:
+            self.data_types = (data_types,)
 
         # Port name
         self.name = name
@@ -41,14 +44,22 @@ class Port:
         self.port_id = None
 
         # Signal value
-        self._port_data = PortData(value=data_types[0]())
+        self._port_data = PortData(value=None)
 
         # Connected?
         self.connected = False
 
+    @staticmethod
+    def _are_ports_compatible(output_port: "OutputPort", input_port: "InputPort") -> bool:
+
+        return any(
+            isinstance(output_port.data, data_type)
+            for data_type in input_port.data_types
+        )
+
 
 class InputPort(Port):
-    def __init__(self, block: "Block", data_types: list[Type[Union[int, float, bool, np.ndarray]]], name: str = None):
+    def __init__(self, block: "Block", data_types: Union[Type, Tuple[Type]], name: str = None):
         super().__init__(block, data_types, name)
 
     @property
@@ -64,13 +75,18 @@ class InputPort(Port):
 
 
 class OutputPort(Port):
-    def __init__(self, block: "Block", data_types: list[Type[Union[int, float, bool, np.ndarray]]], name: str = None):
+    def __init__(self, block: "Block", data_types: Union[Type, Tuple[Type]], name: str = None):
         super().__init__(block, data_types, name)
 
         # List of connected signals
         self.connections = []
 
     def _connect(self, dest) -> bool:
+
+        if not Port._are_ports_compatible(self, dest):
+            raise TypeError(
+                f"Cannot connect {self.block.name} to {dest.block.name}. Port types are not compatible.")
+
         dest._port_data = self._port_data
 
         return True

@@ -8,7 +8,7 @@ class Constant(Block):
         self.value = value
 
         # Create a port for the output
-        self._add_output_port(0, OutputPort(self, [type(value)]))
+        self._add_output_port(0, OutputPort(self, (type(value))))
 
         # Set Initial Output
         self.outputs[0].data = (self.value)
