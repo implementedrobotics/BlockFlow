@@ -1,3 +1,4 @@
+import threading
 from tabulate import tabulate
 from collections import defaultdict, deque
 from block_flow.connections.port import OutputPort, InputPort
@@ -11,7 +12,30 @@ from graphviz import Digraph
 import time
 
 
-class System:
+class RealTimeTask:
+    def __init__(self) -> None:
+        self.start_time = None
+        self.thread = None
+    
+    def run(self, duration: float | None = None, dt: float | None = None) -> None:
+        self.start_time = time.time()
+        self.thread = threading.Thread(target=self._run_thread, args=(duration, dt))
+        self.thread.start()
+    
+    def _run_thread(self, duration: float | None = None, dt: float | None = None) -> None:
+        raise NotImplementedError
+
+    def stop(self) -> None:
+        if self.thread is not None:
+            self.thread.join()
+            self.thread = None
+    
+    def delay(self, dt: float) -> None:
+        next_time = time.perf_counter() + dt
+        while time.perf_counter() < next_time:
+            pass
+
+class System(RealTimeTask):
     def __init__(self, name: str = None) -> None:
 
         # System name
@@ -67,9 +91,10 @@ class System:
                     gcd_value = gcm_of_floats(gcd_value, block.sample_time)
         return gcd_value
 
-    def run(self, duration: float | None = None, dt: float | None = None) -> None:
+    def _run_thread(self, duration: float | None = None, dt: float | None = None) -> None:
 
         num_steps = duration / dt
+        print(num_steps)
         if dt is None:
             dt = self.gcd_sample_time()
 
@@ -80,28 +105,30 @@ class System:
         if duration is None:
             # Run forever
             while True:
-                t = round_time(time.time() - start_time)
+                t = round_time(time.time() - self.start_time)
                 self.update(t)
-                time.sleep(dt)
+                self.delay(dt)
         else:
             # Run for the specified duration
             # This loop is "real time"
-            # while time.time() - start_time < duration:
-            #     start_loop_time = time.perf_counter()
+            while time.time() - self.start_time < duration:
+                start_loop_time = time.perf_counter()
 
+                t = round_time(time.time() - self.start_time)
+                self.update(t)
+                elapsed_time = time.perf_counter() - start_loop_time
+                self.delay(dt - elapsed_time)
+                test_steps += 1
+                #print(f"Elapsed time: {time.perf_counter() - start_loop_time}")
+                if test_steps % 1000 == 0:
+                    print(f" Real Time Rate: {(dt / ((time.perf_counter() - start_loop_time))*100.0):.2f}%")
+            # This loop is "simulation time"
+            # while test_steps < num_steps:
             #     t = round_time(time.time() - start_time)
             #     self.update(t)
-            #     elapsed_time = time.perf_counter() - start_loop_time
-            #     sleep_time = max(dt - elapsed_time, 0)
-            #     time.sleep(sleep_time)
+            #     test_steps += 1
 
-            # This loop is "simulation time"
-            while test_steps < num_steps:
-                t = round_time(time.time() - start_time)
-                self.update(t)
-                test_steps += 1
-
-        # print(test_steps)
+        print(test_steps)
 
     def update(self, t: float) -> None:
 

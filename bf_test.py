@@ -89,10 +89,14 @@ system.compile()
 # system.print_connections()
 
 # Run the system
-system.run(25, dt=0.01)
+system.run(5, dt=0.01)
 
+system.stop()
+print("OUT")
 # Hold Plot
 scope.view()
+
+print(f"System: {ss.outputs[0].data}")
 
 # print(sub_system_block.outputs[0].data)
 # system.print_connections()
