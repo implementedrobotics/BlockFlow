@@ -4,7 +4,6 @@ from block_flow.connections.port import OutputPort, InputPort
 from block_flow.blocks.block import Block
 
 import numpy as np
-from typing import Optional
 
 # def discretize_bilinear(A,B,C,D,T):
 #   # Compute Ad using matrix inversion
@@ -41,7 +40,7 @@ from typing import Optional
 # Linear time invariant system
 # TODO: Discretize function
 class LTI(Block):
-    def __init__(self, A: np.ndarray, B: np.ndarray, C: Optional[np.ndarray], D: Optional[np.ndarray], x_0: Optional[np.ndarray], sample_time: float = None, name: str = None) -> None:
+    def __init__(self, A: np.ndarray, B: np.ndarray, C: np.ndarray | None, D: np.ndarray | None, x_0: np.ndarray | None, sample_time: float = None, name: str = None) -> None:
         super().__init__(num_inputs=1, num_outputs=1, sample_time=sample_time, name=name)
 
         # Check that the dimensions are correct
