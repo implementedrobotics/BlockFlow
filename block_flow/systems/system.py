@@ -16,12 +16,13 @@ class RealTimeTask:
     def __init__(self) -> None:
         self.start_time = None
         self.thread = None
-    
+
     def run(self, duration: float | None = None, dt: float | None = None) -> None:
         self.start_time = time.time()
-        self.thread = threading.Thread(target=self._run_thread, args=(duration, dt))
+        self.thread = threading.Thread(
+            target=self._run_thread, args=(duration, dt))
         self.thread.start()
-    
+
     def _run_thread(self, duration: float | None = None, dt: float | None = None) -> None:
         raise NotImplementedError
 
@@ -29,11 +30,12 @@ class RealTimeTask:
         if self.thread is not None:
             self.thread.join()
             self.thread = None
-    
+
     def delay(self, dt: float) -> None:
         next_time = time.perf_counter() + dt
         while time.perf_counter() < next_time:
             pass
+
 
 class System(RealTimeTask):
     def __init__(self, name: str = None) -> None:
@@ -93,8 +95,9 @@ class System(RealTimeTask):
 
     def _run_thread(self, duration: float | None = None, dt: float | None = None) -> None:
 
-        num_steps = duration / dt
-        print(num_steps)
+        num_steps = int(duration / dt)
+
+        refresh_time = int(0.5 / dt)  # 2 Hz
         if dt is None:
             dt = self.gcd_sample_time()
 
@@ -119,16 +122,17 @@ class System(RealTimeTask):
                 elapsed_time = time.perf_counter() - start_loop_time
                 self.delay(dt - elapsed_time)
                 test_steps += 1
-                #print(f"Elapsed time: {time.perf_counter() - start_loop_time}")
-                if test_steps % 1000 == 0:
-                    print(f" Real Time Rate: {(dt / ((time.perf_counter() - start_loop_time))*100.0):.2f}%")
+                # print(f"Elapsed time: {time.perf_counter() - start_loop_time}")
+                if test_steps % refresh_time == 0:
+                    print(
+                        f" Real Time Rate: {(dt / ((time.perf_counter() - start_loop_time))*100.0):.2f}%", end='\r', flush=True)
             # This loop is "simulation time"
             # while test_steps < num_steps:
             #     t = round_time(time.time() - start_time)
             #     self.update(t)
             #     test_steps += 1
 
-        print(test_steps)
+        print(f"\nMissed Deadlines: {num_steps - test_steps}")
 
     def update(self, t: float) -> None:
 

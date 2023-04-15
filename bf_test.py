@@ -92,7 +92,6 @@ system.compile()
 system.run(5, dt=0.01)
 
 system.stop()
-print("OUT")
 # Hold Plot
 scope.view()
 
