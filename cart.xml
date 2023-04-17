@@ -1,0 +1,30 @@
+<mujoco model="cart_pendulum">
+	<compiler angle="degree" coordinate="local" />
+	<option timestep="0.01" integrator="RK4" gravity="0 0 -9.81" />
+	<default>
+		<geom rgba="1 1 1 1" />
+	</default>
+	<worldbody>
+		<light diffuse="1 1 1" pos="0 0 3" dir="0 0 -1" />
+		<body name="cart" pos="0 0 0">
+			<joint name="cart_slide" type="slide" pos="0 0 0" axis="1 0 0" damping="0.0" limited="false" range="-100 100" />
+			<geom type="box" size="1.0 0.5 0.5" rgba="0 0 1 1" mass="5" />
+			<body name="pendulum" pos="0 0 0" euler="0 0 0">
+				<joint name="pendulum_hinge" type="hinge" pos="0 0 0" axis="0 1 0" damping="0.0" />
+				<geom type="cylinder" pos="0 0 2" size="0.2 2" rgba="1 0 0 1" mass="0" />
+				<body name="pendulum_mass" pos="0 0 2">
+					<geom type="sphere" pos="0 0 2" size="0.4" rgba="1 0 0 1" mass="1" />
+				</body>
+			</body>
+		</body>
+	</worldbody>
+	<sensor>
+		<jointpos name="cart_position" joint="cart_slide" noise="0.0" />
+		<jointvel name="cart_velocity" joint="cart_slide" noise="0.0" />
+		<jointpos name="pendulum_theta" joint="pendulum_hinge" noise="0.0" />
+		<jointvel name="pendulum_theta_dot" joint="pendulum_hinge" noise="0.0" />
+	</sensor>
+	<actuator>
+		<motor joint="cart_slide" ctrllimited="false" ctrlrange="-1 1" />
+	</actuator>
+</mujoco>

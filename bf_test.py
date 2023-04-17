@@ -2,12 +2,14 @@ from block_flow.blocks.subsystem.sink import SinkBlock
 from block_flow.blocks.subsystem.source import SourceBlock
 from block_flow.blocks.subsystem.subsystem import SubSystemBlock
 from block_flow.blocks.sinks.scope import Scope
+from block_flow.blocks.sinks.MujocoVisualizer import MuJoCoVisualizationBlock
 from block_flow.blocks.discrete.delay import ZeroOrderHold
 from block_flow.systems.system import System
 from block_flow.connections.signal import Signal
 from block_flow.blocks.sources.constant import Constant
 from block_flow.blocks.math import Add, Mul
 from block_flow.blocks.models.LTI import LTI
+from block_flow.blocks.models.MujocoPlant import MujocoPlant
 
 from scipy.signal import cont2discrete
 
@@ -39,21 +41,25 @@ Ad, Bd, _, _, _ = cont2discrete((A, B, C, D), dt=0.01, method='bilinear')
 
 # Initial conditions and external force
 x0 = np.array([0, 0, 0, 0])
-u = 0  # No external force applied
+u = 2  # No external force applied
 
 
 system = System("Test")
 
 
-ss = system.add_block(LTI(A=Ad, B=Bd, C=None, D=None, x_0=x0, name="M-S-D"))
-u_ref = system.add_block(Constant(np.array([1]), name="Input 1"))
-scope = system.add_block(
-    Scope(num_inputs=1, max_time_steps=5000, name="Scope"))
+# ss = system.add_block(LTI(A=Ad, B=Bd, C=None, D=None, x_0=x0, name="M-S-D"))
+u_ref = system.add_block(Constant(np.array([u]), name="Input 1"))
+# scope = system.add_block(
+#     Scope(num_inputs=1, max_time_steps=5000, name="Scope"))
+viz = system.add_block(MuJoCoVisualizationBlock(
+    model_path="cart.xml", sample_time=0.01, name="Mujoco Viz"))
 
-# Connect the blocks
-system.connect(u_ref.outputs[0], ss.inputs[0])
-system.connect(ss.outputs[0], scope.inputs[0])
+# cart = system.add_block(MujocoPlant(
+#     model_path="cart.xml", x_0=x0, sample_time=0.01, name="Cart Pendulum"))
 
+# # Connect the blocks
+# system.connect(u_ref.outputs[0], cart.inputs[0])
+# system.connect(cart.outputs[0], viz.inputs[0])
 
 # sub_system = System(name="Subsystem")
 
@@ -93,9 +99,9 @@ system.run(5, dt=0.01)
 
 system.stop()
 # Hold Plot
-scope.view()
+# scope.view()
 
-print(f"System: {ss.outputs[0].data}")
+# print(f"System: {ss.outputs[0].data}")
 
 # print(sub_system_block.outputs[0].data)
 # system.print_connections()

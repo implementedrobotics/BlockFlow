@@ -127,10 +127,10 @@ class System(RealTimeTask):
                     print(
                         f" Real Time Rate: {(dt / ((time.perf_counter() - start_loop_time))*100.0):.2f}%", end='\r', flush=True)
             # This loop is "simulation time"
-            # while test_steps < num_steps:
-            #     t = round_time(time.time() - start_time)
-            #     self.update(t)
-            #     test_steps += 1
+            while test_steps < num_steps:
+                t = round_time(time.time() - start_time)
+                self.update(t)
+                test_steps += 1
 
         print(f"\nMissed Deadlines: {num_steps - test_steps}")
 
