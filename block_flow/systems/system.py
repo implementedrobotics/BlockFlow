@@ -33,6 +33,7 @@ class RealTimeTask:
 
     def delay(self, dt: float) -> None:
         next_time = time.perf_counter() + dt
+        time.sleep(dt - 0.001)
         while time.perf_counter() < next_time:
             pass
 
@@ -126,11 +127,12 @@ class System(RealTimeTask):
                 if test_steps % refresh_time == 0:
                     print(
                         f" Real Time Rate: {(dt / ((time.perf_counter() - start_loop_time))*100.0):.2f}%", end='\r', flush=True)
+
             # This loop is "simulation time"
-            while test_steps < num_steps:
-                t = round_time(time.time() - start_time)
-                self.update(t)
-                test_steps += 1
+            # while test_steps < num_steps:
+            #     t = round_time(time.time() - start_time)
+            #     self.update(t)
+            #     test_steps += 1
 
         print(f"\nMissed Deadlines: {num_steps - test_steps}")
 

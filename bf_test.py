@@ -14,7 +14,7 @@ from block_flow.blocks.models.MujocoPlant import MujocoPlant
 from scipy.signal import cont2discrete
 
 import numpy as np
-
+import time
 # zoh = ZeroOrderHold(name="ZOH", sample_time=1)
 
 # Parameters
@@ -47,18 +47,20 @@ u = 2  # No external force applied
 system = System("Test")
 
 
-# ss = system.add_block(LTI(A=Ad, B=Bd, C=None, D=None, x_0=x0, name="M-S-D"))
+ss = system.add_block(LTI(A=Ad, B=Bd, C=None, D=None, x_0=x0, name="M-S-D"))
 u_ref = system.add_block(Constant(np.array([u]), name="Input 1"))
-# scope = system.add_block(
-#     Scope(num_inputs=1, max_time_steps=5000, name="Scope"))
-viz = system.add_block(MuJoCoVisualizationBlock(
-    model_path="cart.xml", sample_time=0.01, name="Mujoco Viz"))
+scope = system.add_block(
+    Scope(num_inputs=1, max_time_steps=5000, name="Scope"))
+# viz = system.add_block(MuJoCoVisualizationBlock(
+#    model_path="cart.xml", sample_time=0.01, name="Mujoco Viz"))
 
-# cart = system.add_block(MujocoPlant(
-#     model_path="cart.xml", x_0=x0, sample_time=0.01, name="Cart Pendulum"))
+# time.sleep(1)
+cart = system.add_block(MujocoPlant(
+    model_path="cart.xml", x_0=x0, sample_time=0.01, name="Cart Pendulum"))
 
-# # Connect the blocks
-# system.connect(u_ref.outputs[0], cart.inputs[0])
+# Connect the blocks
+# system.connect(u_ref.outputs[0], ss.inputs[0])
+system.connect(u_ref.outputs[0], cart.inputs[0])
 # system.connect(cart.outputs[0], viz.inputs[0])
 
 # sub_system = System(name="Subsystem")
@@ -91,8 +93,8 @@ viz = system.add_block(MuJoCoVisualizationBlock(
 # Compile the system
 system.compile()
 
-# # Debug Print Connections
-# system.print_connections()
+# Debug Print Connections
+system.print_connections()
 
 # Run the system
 system.run(5, dt=0.01)

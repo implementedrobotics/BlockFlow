@@ -60,5 +60,7 @@ class MujocoPlant(Block):
         # Set Output
         self.outputs[0].data = self._x
 
+        print(self._x)
+
     def f(self, x, u) -> None:
         pass

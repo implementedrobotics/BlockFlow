@@ -98,6 +98,9 @@ class LTI(Block):
 
     def update(self, t) -> None:
 
+        # TODO: Error Check unconnected inputs signals. Make generic function somewhere?
+        if self.inputs[0].data is None:
+            print("Input is not connected!")
         # Update the state vector
         self._x = self.A @ self._x + self.B @ self.inputs[0].data
         y_k = self.C @ self._x + self.D @ self.inputs[0].data

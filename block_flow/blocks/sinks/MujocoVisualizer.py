@@ -4,7 +4,7 @@ import math
 import numpy as np
 from block_flow.connections.port import OutputPort, InputPort
 from block_flow.blocks.block import Block
-import threading
+import multiprocessing
 
 
 class MuJoCoVisualizationBlock(Block):
@@ -26,14 +26,14 @@ class MuJoCoVisualizationBlock(Block):
             self, data_types=(np.ndarray)))
 
         # Create a lock for protecting access to the shared data (input signal)
-        self.lock = threading.Lock()
+        self.lock = multiprocessing.Lock()
 
         self.viewer = None
         self.input_test = np.ndarray([])
 
         # Create a separate thread for visualization
-        self.vis_thread = threading.Thread(target=self._visualize)
-        self.vis_thread.start()
+        self.vis_process = multiprocessing.Process(target=self._visualize)
+        self.vis_process.start()
 
     def _visualize(self):
 
